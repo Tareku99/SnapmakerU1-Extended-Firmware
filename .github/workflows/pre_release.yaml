@@ -54,7 +54,7 @@ jobs:
       shell: bash
       run: |
         nextVer=$(./scripts/next_version.sh paxx12)
-        echo "GIT_VERSION=${nextVer//v/}" | tee -a $GITHUB_ENV
+        echo "GIT_VERSION=${nextVer#v}" | tee -a $GITHUB_ENV
 
     - name: Download firmware
       run: ./dev.sh make firmware
@@ -65,10 +65,14 @@ jobs:
     - name: Generate Changelog
       run: make changelog >> RELEASE.md
 
+    - name: Append checksums to release notes
+      run: node .github/scripts/append_checksums.js RELEASE.md U1_extended_${{ env.GIT_VERSION }}_upgrade.bin
+
     - name: 'Release debian files'
       uses: ncipollo/release-action@v1
       with:
         tag: "v${{ env.GIT_VERSION }}"
+        name: "v${{ env.GIT_VERSION }}"
         allowUpdates: false
         updateOnlyUnreleased: true
         draft: true
