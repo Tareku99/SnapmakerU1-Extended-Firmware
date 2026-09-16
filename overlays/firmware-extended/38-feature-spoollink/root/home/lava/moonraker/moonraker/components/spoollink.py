@@ -396,7 +396,7 @@ class SpoolLink:
                             channel, card_uid, ids)
             await self._spoollink_set(
                 channel,
-                f"SpoolLink: E{channel + 1} card {card_uid} "
+                f"SpoolLink: E{channel} card {card_uid} "
                 f"assigned to multiple spools: {ids}",
                 status="error")
             return
@@ -416,7 +416,7 @@ class SpoolLink:
                         self._delete_cache(card_uid)
                     await self._spoollink_set(
                         channel,
-                        f"SpoolLink: E{channel + 1} no spool found for card {card_uid}",
+                        f"SpoolLink: E{channel} no spool found for card {card_uid}",
                         status="error")
                 return
 
@@ -500,7 +500,7 @@ class SpoolLink:
         label += f" #{color_list[0]} (spool #{spool_id}, card {uid_hex or 'none'})"
         if cached:
             label += " [cached]"
-        message = f"SpoolLink: E{channel + 1} loaded {label}"
+        message = f"SpoolLink: E{channel} loaded {label}"
 
         logging.info(
             "[spoollink] ch%d: applying spool %s — %s %s%s #%s (card %s)",

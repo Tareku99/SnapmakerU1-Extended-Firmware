@@ -33,6 +33,9 @@ jobs:
         cache-from: type=gha
         cache-to: type=gha,mode=max
 
+    - name: Run firmware validator self-test
+      run: ./dev.sh make test-validation
+
     - name: Load values vars.mk
       run: cat vars.mk >> "$GITHUB_ENV"
 
@@ -62,6 +65,13 @@ jobs:
     - name: Build with Extended Fluidd firmware
       run: ./dev.sh make build PROFILE=extended OUTPUT_FILE=U1_extended_${{ env.GIT_VERSION }}_upgrade.bin
 
+    - name: Publish validation summary
+      run: |
+        echo "## Firmware validation" >> "$GITHUB_STEP_SUMMARY"
+        echo '~~~text' >> "$GITHUB_STEP_SUMMARY"
+        cat U1_extended_${{ env.GIT_VERSION }}_upgrade.bin.validation.txt >> "$GITHUB_STEP_SUMMARY"
+        echo '~~~' >> "$GITHUB_STEP_SUMMARY"
+
     - name: Generate Changelog
       run: make changelog >> RELEASE.md
 
@@ -77,7 +87,7 @@ jobs:
         updateOnlyUnreleased: true
         draft: true
         bodyFile: RELEASE.md
-        artifacts: "U1_*_upgrade.bin"
+        artifacts: "U1_*_upgrade.bin,U1_*_upgrade.bin.validation.txt"
 
     - name: Save Firmwares Cache
       if: steps.cache-firmwares.outputs.cache-hit != 'true'

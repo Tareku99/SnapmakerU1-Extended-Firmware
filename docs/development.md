@@ -59,11 +59,54 @@ Build extended firmware:
 ./dev.sh make build PROFILE=extended OUTPUT_FILE=firmware/U1_extended.bin
 ```
 
+Before any developer upgrade, validate the complete artifact against the
+approved base package:
+
+```bash
+./dev.sh make validate-build PROFILE=extended OUTPUT_FILE=firmware/U1_extended.bin
+```
+
+The developer upgrade helper uses this same validation, uploads the complete
+upgrade image, records the pending post-boot health check, and then invokes the
+normal full-image updater. It no longer sends a raw `update.img` directly.
+
 Open a shell in the development environment:
 
 ```bash
 ./dev.sh bash
 ```
+
+## Build safety
+
+Firmware builds copy Linux-executed files into the target root filesystem.
+The repository therefore enforces LF line endings for source text and treats
+firmware images and other binary assets as binary. The dev.sh wrapper refuses
+to start when the current checkout contains CRLF or mixed line endings.
+
+Run the validator self-test before building:
+
+~~~bash
+./dev.sh make test-validation
+~~~
+
+Every make build also validates the staged root filesystem before it is
+compressed and validates the finished upgrade image after unpacking it again.
+The final check compares the package layout, protected misc payload, and
+other base-owned package data against the selected stock base. A successful
+build produces a .validation.txt report beside the upgrade image; that report
+records the source revision, checkout state, profile, base hash, payload
+hashes, and final artifact hash.
+
+The low-level packer requires a base firmware image by default, so repacks
+also compare protected package data. The debug-only misc tool is the only
+intentional exception and must opt in explicitly; it is not a release-build
+path. The pinned stock base is SHA-256 verified even when it comes from the
+firmware cache.
+
+Use a fresh Linux/WSL checkout for local release candidates, or normalize the
+checkout before invoking dev.sh. The build tools never flash, reboot, or
+modify a printer. A workflow artifact is ready for testing only when its
+validation report is present and the workflow job succeeded.
 
 ## Mods
 

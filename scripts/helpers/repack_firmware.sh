@@ -31,6 +31,7 @@ echo ">> Running command: $*"
 )
 
 echo ">> Repacking firmware"
-"$ROOT_DIR/scripts/helpers/pack_firmware.sh" "$TMP_DIR" "$OUT"
+BASE_FIRMWARE="$IN" \
+  "$ROOT_DIR/scripts/helpers/pack_firmware.sh" "$TMP_DIR" "$OUT"
 
 echo ">> Done: $OUT"

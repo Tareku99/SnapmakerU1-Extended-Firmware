@@ -4,6 +4,10 @@
 
 include vars.mk
 
+# Profiles are consumed by overlay scripts as well as by make itself.
+# Export the selected profile so the staged rootfs records exactly what was built.
+export PROFILE
+
 all: tools
 
 # ================= Build Tools =================
@@ -40,6 +44,13 @@ endif
 .PHONY: build
 build: $(OUTPUT_FILE)
 
+.PHONY: validate-build
+validate-build: $(OUTPUT_FILE) firmware/$(FIRMWARE_FILE)
+	./scripts/validate_firmware.sh \
+		--firmware "$(OUTPUT_FILE)" \
+		--base-firmware "firmware/$(FIRMWARE_FILE)" \
+		--profile "$(PROFILE)"
+
 EXTRACT_DIR := tmp/extracted-$(FIRMWARE_VERSION)
 
 .PHONY: extract
@@ -68,16 +79,28 @@ tools/%: FORCE
 .PHONY: firmware
 firmware: firmware/$(FIRMWARE_FILE)
 
-firmware/$(FIRMWARE_FILE):
+firmware/$(FIRMWARE_FILE): FORCE
 	@mkdir -p firmware
-	wget -O $@.tmp "https://public.resource.snapmaker.com/firmware/U1/$(FIRMWARE_FILE)"
-	echo "$(FIRMWARE_SHA256)  $@.tmp" | sha256sum -c --quiet
-	mv $@.tmp $@
+	@if [ -f "$@" ] && echo "$(FIRMWARE_SHA256)  $@" | sha256sum -c --status; then \
+		echo "Verified cached base firmware: $@"; \
+	else \
+		rm -f "$@.tmp"; \
+		wget -O "$@.tmp" "https://public.resource.snapmaker.com/firmware/U1/$(FIRMWARE_FILE)"; \
+		echo "$(FIRMWARE_SHA256)  $@.tmp" | sha256sum -c --quiet; \
+		mv "$@.tmp" "$@"; \
+	fi
 
 # ================= Test =================
 
-test: firmware/$(FIRMWARE_FILE)
+test: test-validation firmware/$(FIRMWARE_FILE)
 	make -C tools test FIRMWARE_FILE=$(CURDIR)/firmware/$(FIRMWARE_FILE)
+
+.PHONY: test-validation
+test-validation:
+	bash scripts/tests/validate_firmware_test.sh
+	bash scripts/tests/camera_hook_test.sh
+	bash scripts/tests/firmware_upgrade_health_test.sh
+	bash scripts/tests/upgrade_path_test.sh
 
 # ================= Helpers =================
 

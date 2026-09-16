@@ -14,6 +14,17 @@ Thin compatibility layer simulating the [ArmoredTurtle AFC-Klipper-Add-On](https
 
 To provide an ability to manage U1 extruders via `Fluidd/Mainsail` interface.
 
+## Using with ACE and Spoolman
+
+AFC-Lite can be enabled alongside the Anycubic ACE integration and the
+Spoolman/SpoolLink integration. ACE controls the physical filament movement,
+AFC-Lite exposes the U1 extruders as AFC-compatible lanes in Fluidd/Mainsail,
+and SpoolLink handles spool lookup and tracking through Spoolman.
+
+Spoolman support is provided by SpoolLink, not by AFC-Lite itself. The separate
+full AFC-Klipper-Add-On is a different integration for physical AFC hardware
+and should not be enabled for the same U1 extruder setup.
+
 ## What It Provides
 
 **Status Integration:**
@@ -34,8 +45,9 @@ To provide an ability to manage U1 extruders via `Fluidd/Mainsail` interface.
 
 **Not Supported:**
 
-- Spoolman integration (planned for future release)
-- Filament tracking and databases
+- Spoolman lookup and tracking within AFC-Lite itself; enable the separate
+  Spoolman/SpoolLink integration for those features
+- Filament database management within AFC-Lite itself
 - Runout lane configuration
 - Mapping single extruder to multiple logical tools
 - AFC hardware (hubs, buffers, physical devices)
@@ -79,4 +91,3 @@ rm /oem/printer_data/config/extended/klipper/afc.cfg
 ## See Also
 
 - [Spoolman Integration](spoolman.md) — automatic spool lookup, card UID binding, and active spool tracking via the SpoolLink component
-

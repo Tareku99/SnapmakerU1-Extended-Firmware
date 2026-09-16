@@ -35,12 +35,13 @@ upgrade_url:
             rm -rf "$tmpdir" "$file"
             exit 1
           fi
-          binfile=$(find "$tmpdir" -type f | grep -i '\.bin$' | head -1)
-          if [ -z "$binfile" ]; then
-            echo "ERROR: No .bin file found in the zip archive."
+          bin_count=$(find "$tmpdir" -type f -iname '*.bin' | wc -l)
+          if [ "$bin_count" -ne 1 ]; then
+            echo "ERROR: Expected exactly one .bin file in the zip archive; found $bin_count."
             rm -rf "$tmpdir" "$file"
             exit 1
           fi
+          binfile=$(find "$tmpdir" -type f -iname '*.bin' -print -quit)
           mv "$binfile" "$file"
           rm -rf "$tmpdir"
           echo "Extracted firmware from archive."
@@ -55,6 +56,18 @@ upgrade_url:
     if [ "$size" -lt "$min_size" ]; then
       echo "ERROR: Downloaded file is only $(($size / 1024)) KB — expected at least 50 MB for a firmware file."
       echo "The URL may have returned an error page instead of a valid firmware file."
+      rm -f /userdata/url_upgrade.bin
+      exit 1
+    fi
+
+    if ! /usr/local/bin/firmware-upgrade-preflight.sh /userdata/url_upgrade.bin; then
+      echo "ERROR: Firmware preflight failed; the upgrade was not started."
+      rm -f /userdata/url_upgrade.bin
+      exit 1
+    fi
+
+    if ! /bin/sh /usr/local/bin/firmware-upgrade-health.sh begin /userdata/url_upgrade.bin; then
+      echo "ERROR: Could not record the pending upgrade; the upgrade was not started."
       rm -f /userdata/url_upgrade.bin
       exit 1
     fi
@@ -82,12 +95,13 @@ upgrade_upload:
             rm -rf "$tmpdir" "$file"
             exit 1
           fi
-          binfile=$(find "$tmpdir" -type f | grep -i '\.bin$' | head -1)
-          if [ -z "$binfile" ]; then
-            echo "ERROR: No .bin file found in the zip archive."
+          bin_count=$(find "$tmpdir" -type f -iname '*.bin' | wc -l)
+          if [ "$bin_count" -ne 1 ]; then
+            echo "ERROR: Expected exactly one .bin file in the zip archive; found $bin_count."
             rm -rf "$tmpdir" "$file"
             exit 1
           fi
+          binfile=$(find "$tmpdir" -type f -iname '*.bin' -print -quit)
           mv "$binfile" "$file"
           rm -rf "$tmpdir"
           echo "Extracted firmware from archive."
@@ -101,6 +115,18 @@ upgrade_upload:
     min_size=$((50 * 1024 * 1024))
     if [ "$size" -lt "$min_size" ]; then
       echo "ERROR: Uploaded file is only $(($size / 1024)) KB — expected at least 50 MB for a firmware file."
+      rm -f "$1"
+      exit 1
+    fi
+
+    if ! /usr/local/bin/firmware-upgrade-preflight.sh "$1"; then
+      echo "ERROR: Firmware preflight failed; the upgrade was not started."
+      rm -f "$1"
+      exit 1
+    fi
+
+    if ! /bin/sh /usr/local/bin/firmware-upgrade-health.sh begin "$1"; then
+      echo "ERROR: Could not record the pending upgrade; the upgrade was not started."
       rm -f "$1"
       exit 1
     fi

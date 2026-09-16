@@ -395,9 +395,12 @@ class Ace:
         self._web_dir = config.get(
             'web_dir', '/home/lava/ace_web')
 
-        self._identity_priority = config.get('identity_priority', 'ace')
+        # An explicit SpoolLink assignment is the user's source of truth for
+        # that head. ACE metadata refreshes do not include a Spoolman ID, so
+        # treating ACE as the default would erase a valid assignment.
+        self._identity_priority = config.get('identity_priority', 'spoollink')
         if self._identity_priority not in ('ace', 'spoollink'):
-            self._identity_priority = 'ace'
+            self._identity_priority = 'spoollink'
         config_lang = config.get('language', 'en')
         lang = None
         if self.save_variables:
@@ -4207,6 +4210,19 @@ class Ace:
                                                   or self._norm_subtype(cur_sub) != want_sub)
                                     want_key = (want_type, want_vendor,
                                                 want_color, want_sub)
+                                    if (needs_heal
+                                            and self._identity_priority == 'spoollink'
+                                            and self._ptc_spool_id_for(head) > 0):
+                                        if self._heal_official_skip.get(head) != want_key:
+                                            logging.info(
+                                                '[ACE] display heal: head %d is '
+                                                'owned by SpoolLink spool %d; '
+                                                'leaving its assigned identity '
+                                                'unchanged' % (
+                                                    self._disp(head),
+                                                    self._ptc_spool_id_for(head)))
+                                            self._heal_official_skip[head] = want_key
+                                        continue
                                     if needs_heal and \
                                             self._heal_official_skip.get(head) != want_key:
                                         logging.info(
@@ -4962,14 +4978,21 @@ class Ace:
             return False
         self._expect_ptc_push(head, ftype, color_rgba, vendor, subtype)
         try:
+            # A newly reported ACE RFID item is a physical filament change,
+            # not a metadata refresh. Explicitly clear the old SpoolLink
+            # binding before applying the new ACE identity. FORCE is needed
+            # when the previous SpoolLink stamp marked the head official.
+            spool_reset = (' FILAMENT_SPOOL_ID=0 FORCE=1'
+                           if ctx in ('rfid-transition', 'rfid-fallback')
+                           else '')
             self.gcode.run_script_from_command(
                 'SET_PRINT_FILAMENT_CONFIG '
                 'CONFIG_EXTRUDER=%d '
                 'FILAMENT_TYPE="%s" '
                 'FILAMENT_COLOR_RGBA=%s '
                 'VENDOR="%s" '
-                'FILAMENT_SUBTYPE="%s"' % (
-                    head, ftype, color_rgba, vendor, subtype))
+                'FILAMENT_SUBTYPE="%s"%s' % (
+                    head, ftype, color_rgba, vendor, subtype, spool_reset))
             self._ptc_push_block.pop(head, None)
             return True
         except Exception as e:
@@ -5065,6 +5088,8 @@ class Ace:
             saved = None
             _ph = int(gcmd.get_int('CONFIG_EXTRUDER', -1))
             _skip_push = False
+            _is_empty_push = not str(
+                params.get('FILAMENT_TYPE', '') or '').strip()
             if self._match_expected_push({
                     'head':    _ph,
                     'type':    str(gcmd.get('FILAMENT_TYPE', '') or ''),
@@ -5091,7 +5116,9 @@ class Ace:
                 _official = self._ptc_official_for(_ph)
                 if not _official:
                     self._force_official_count.pop(_ph, None)
-                elif self._identity_priority == 'spoollink':
+                elif (self._identity_priority == 'spoollink'
+                      and not _is_empty_push
+                      and 'FILAMENT_SPOOL_ID' not in params):
                     _skip_push = True
                     logging.info(
                         '[ACE] head %d is flagged official - leaving it '
@@ -5118,6 +5145,14 @@ class Ace:
                             'it. Leaving it alone; set identity_priority: '
                             'spoollink to stop trying.'
                             % (self._disp(_ph), FORCE_OFFICIAL_MAX))
+                elif _is_empty_push and 'FORCE' not in params:
+                    # An intentional clear (for example ACE_CLEAR_HEADS or an
+                    # empty slot) must still remove a SpoolLink assignment.
+                    # Official filament normally rejects a metadata edit, so
+                    # use the raw handler with FORCE just for this clear.
+                    if saved is None:
+                        saved = dict(params)
+                    params['FORCE'] = '1'
             if str(params.get('FILAMENT_TYPE', '') or '').strip():
                 nv = (self._norm_vendor_push(params.get('VENDOR'))
                       if 'VENDOR' in params else None)

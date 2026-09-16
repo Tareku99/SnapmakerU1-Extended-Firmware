@@ -609,7 +609,11 @@ class FirmwareConfigHandler(SimpleHTTPRequestHandler):
 
             rc, stopped = self._stream_command(shell_to_cmd(shell_template, url), stop_token=stop_token)
             self._write_stream_chunk(f"\n{'=' * 40}\n")
-            if rc == 0 or stopped:
+            if stopped:
+                self._write_stream_chunk(
+                    "REBOOT_PENDING: Firmware accepted; reboot pending.\n"
+                )
+            elif rc == 0:
                 self._write_stream_chunk("SUCCESS: Completed successfully.\n")
             else:
                 self._write_stream_chunk(f"ERROR: Failed with exit code {rc}\n")
@@ -660,7 +664,11 @@ class FirmwareConfigHandler(SimpleHTTPRequestHandler):
             try:
                 rc, stopped = self._stream_command(shell_to_cmd(shell_template, file_path), stop_token=stop_token)
                 self._write_stream_chunk(f"\n{'=' * 40}\n")
-                if rc == 0 or stopped:
+                if stopped:
+                    self._write_stream_chunk(
+                        "REBOOT_PENDING: Firmware accepted; reboot pending.\n"
+                    )
+                elif rc == 0:
                     self._write_stream_chunk("SUCCESS: Completed successfully.\n")
                 else:
                     self._write_stream_chunk(f"ERROR: Failed with exit code {rc}\n")

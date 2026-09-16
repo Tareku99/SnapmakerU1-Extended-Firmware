@@ -19,6 +19,19 @@ Automatic filament metadata sync and spool tracking via
 - Tracks the active spool in Moonraker so Spoolman can update remaining
   filament weight as you print.
 
+## Using with ACE and AFC-Lite
+
+Spoolman/SpoolLink can be enabled alongside the Anycubic ACE integration and
+AFC-Lite. ACE controls the physical filament movement, AFC-Lite provides the
+Fluidd/Mainsail lane and status interface, and SpoolLink manages spool identity
+and tracking through Spoolman. A new ACE RFID spool clears the previous
+SpoolLink assignment, while an explicit SpoolLink assignment remains selected
+through ACE metadata refreshes.
+
+This does not turn AFC-Lite into physical AFC hardware support. The separate
+full AFC-Klipper-Add-On is a different integration and should not be enabled
+for the same U1 extruder setup.
+
 ## Screenshots
 
 **Filament Manager** (`/filament/`) reconciles each channel across Official
@@ -129,6 +142,9 @@ available whenever Spoolman is enabled, with or without AFC-Lite.
 - Spoolman must be reachable from the printer over HTTP.
 - Variant defaults to `Basic` for Snapmaker-branded filaments when not
   set in Spoolman; empty for all other vendors.
+- Fluidd/Mainsail show one global active spool. It follows the currently
+  selected toolhead; assignments for the other channels are kept separately
+  and appear in the AFC/filament views.
 
 For the wire format, custom fields, and component flow see the
 [design notes](design/spoolman.md). For AFC lane status that surfaces

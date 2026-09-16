@@ -54,3 +54,47 @@ locally before any network I/O happens.
 
 See [`overlays/firmware-extended/40-feature-upgrade-firmware`](https://github.com/paxx12/SnapmakerU1/tree/main/overlays/firmware-extended/40-feature-upgrade-firmware)
 for the implementation.
+
+## Upgrade safety
+
+The firmware-config upload and download actions accept a firmware container or
+a ZIP containing exactly one firmware container. An archive with zero or
+multiple `.bin` files is rejected instead of choosing one arbitrarily.
+
+Before printer services are stopped, the candidate is checked for the expected
+upgrade-container entries and Rockchip update-image magic. A failed preflight
+stops the operation before the vendor updater is called. The UI reports
+preflight failure, upgrade progress, and reboot pending separately; reaching
+the vendor updater's reboot boundary is not presented as proof that the new
+firmware has booted successfully.
+
+The stronger rootfs, partition, protected-`misc`, and provenance checks run in
+the build and CI pipeline. The printer-side preflight is intentionally a small
+transport/container check and does not execute code from the candidate image.
+
+## Post-boot health gate
+
+The upgrade flow also records a pending upgrade in
+`/userdata/.extended-firmware-upgrade` immediately before calling the vendor
+updater through Firmware Config's URL or Upload action. On the next boot, a
+small guard waits for the new A/B slot and checks
+that the candidate commit stamp (when present) matches `/etc/BUILD_VERSION`,
+the build metadata and required runtime files are readable, Moonraker can
+reach Klipper in `ready` state, and the firmware-config API is healthy when it
+is enabled.
+
+Three consecutive healthy checks mark the candidate `verified`. If the new slot
+does not become healthy before the bounded retry window, the guard performs one
+vendor-supported backup-slot request (`updateEngine --misc=other --reboot`). It
+does not erase `/oem` settings, write the `misc` partition directly, or retry a
+rollback indefinitely. The result is shown in Firmware Config under **Firmware
+Upgrade Safety** as `pending`, `verified`, `rollback requested`, `rollback
+failed`, or `not switched`.
+
+This is defense in depth, not a bootloader guarantee: if a candidate fails so
+early that the new root filesystem cannot start the guard, the vendor bootloader
+must provide its own boot-count fallback. The build-time validator remains the
+first line of defense, and the post-boot gate is intentionally limited to the
+existing A/B switch operation. Updates performed directly through USB recovery
+or Rockchip tools do not create this pending record and therefore remain a
+manual recovery path.

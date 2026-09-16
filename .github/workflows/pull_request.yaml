@@ -42,6 +42,9 @@ jobs:
         cache-to: type=gha,mode=max
         build-args: BUILDKIT_INLINE_CACHE=1
 
+    - name: Run firmware validator self-test
+      run: ./dev.sh make test-validation
+
     - name: Load values vars.mk
       run: cat vars.mk >> "$GITHUB_ENV"
 
@@ -97,7 +100,9 @@ jobs:
     - uses: actions/upload-artifact@v4
       with:
         name: ${{ env.BUILD_PROFILE }}-build
-        path: U1_${{ env.BUILD_PROFILE }}_${{ env.GIT_VERSION }}_upgrade.bin
+        path: |
+          U1_${{ env.BUILD_PROFILE }}_${{ env.GIT_VERSION }}_upgrade.bin
+          U1_${{ env.BUILD_PROFILE }}_${{ env.GIT_VERSION }}_upgrade.bin.validation.txt
 
     - name: Build with Extended Fluidd + AFC firmware (experimental)
       run: ./dev.sh make build PROFILE=extended-afc OUTPUT_FILE=U1_extended-afc_${{ env.GIT_VERSION }}_upgrade.bin
@@ -105,7 +110,9 @@ jobs:
     - uses: actions/upload-artifact@v4
       with:
         name: extended-afc-build
-        path: U1_extended-afc_*_upgrade.bin
+        path: |
+          U1_extended-afc_*_upgrade.bin
+          U1_extended-afc_*_upgrade.bin.validation.txt
 
     - name: Build PR630 ACE firmware (experimental)
       run: ./dev.sh make build PROFILE=extended-tareku99 OUTPUT_FILE=U1_extended-tareku99_${{ env.GIT_VERSION }}_upgrade.bin
@@ -113,7 +120,28 @@ jobs:
     - uses: actions/upload-artifact@v4
       with:
         name: extended-tareku99-build
-        path: U1_extended-tareku99_*_upgrade.bin
+        path: |
+          U1_extended-tareku99_*_upgrade.bin
+          U1_extended-tareku99_*_upgrade.bin.validation.txt
+
+    - name: Publish validation summaries
+      run: |
+        for report in U1_*_upgrade.bin.validation.txt; do
+          echo "## $(basename "$report")" >> "$GITHUB_STEP_SUMMARY"
+          echo '~~~text' >> "$GITHUB_STEP_SUMMARY"
+          cat "$report" >> "$GITHUB_STEP_SUMMARY"
+          echo '~~~' >> "$GITHUB_STEP_SUMMARY"
+        done
+
+    - name: Preserve validation diagnostics
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: validation-diagnostics
+        path: |
+          tmp/**/rootfs-validation.txt
+          U1_*_upgrade.bin.validation.txt
+        if-no-files-found: ignore
 
     - name: Save PR info
       if: github.event_name == 'pull_request'

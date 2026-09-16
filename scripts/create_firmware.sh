@@ -36,6 +36,33 @@ rm -rf "$BUILD_DIR"
 
 shift 3
 
+validate_build_scripts() {
+  local overlay script_dir scriptfile first_line
+  for overlay; do
+    for script_dir in "$overlay/pre-scripts" "$overlay/scripts"; do
+      [[ -d "$script_dir" ]] || continue
+      while IFS= read -r -d '' scriptfile; do
+        first_line="$(LC_ALL=C head -n 1 -- "$scriptfile" 2>/dev/null || true)"
+        if [[ "$first_line" != '#!'* ]]; then
+          echo "Error: build script has no shebang: $scriptfile"
+          exit 1
+        fi
+        if LC_ALL=C grep -qU -- $'\r' "$scriptfile" 2>/dev/null; then
+          echo "Error: build script contains CRLF or mixed line endings: $scriptfile"
+          exit 1
+        fi
+        if [[ "$first_line" == *"/bash"* ]]; then
+          bash -n "$scriptfile" || exit 1
+        else
+          sh -n "$scriptfile" || exit 1
+        fi
+      done < <(find "$script_dir" -type f -name '*.sh' -print0)
+    done
+  done
+}
+
+validate_build_scripts "$@"
+
 check_perms() {
   local file="$1"
   local expected_uid="$2"
@@ -116,12 +143,26 @@ if [[ -z "$CI" ]]; then
   rm -rf "$ROOTFS_DIR/cache"
 fi
 
-echo ">> Checking for non-ARM binaries in rootfs..."
-if FILES=$(find "$ROOTFS_DIR" -type f -exec file {} + | grep "ELF" | grep -v "ARM"); then
-  echo "!! Error: Found non-ARM binaries in the rootfs:"
-  echo "$FILES"
-  exit 1
+# Runtime files added by the upgrade safety guard must remain executable in
+# the squashfs even when the source checkout is on a filesystem without Unix
+# mode bits (for example a Windows bind mount used by local Docker builds).
+for runtime_file in \
+  "$ROOTFS_DIR/etc/init.d/S05firmware-upgrade-health" \
+  "$ROOTFS_DIR/usr/local/bin/firmware-upgrade-health.sh"; do
+  if [[ -f "$runtime_file" ]]; then
+    chmod 0755 "$runtime_file"
+  fi
+done
+
+echo ">> Validating staged rootfs..."
+ROOTFS_VALIDATION_ARGS=(
+  --rootfs "$ROOTFS_DIR"
+  --report "$BUILD_DIR/rootfs-validation.txt"
+)
+if [[ -n "${PROFILE:-}" ]]; then
+  ROOTFS_VALIDATION_ARGS+=(--profile "$PROFILE")
 fi
+bash "$ROOT_DIR/scripts/validate_firmware.sh" "${ROOTFS_VALIDATION_ARGS[@]}"
 
 echo ">> Create squash filesystem..."
 mksquashfs "$ROOTFS_DIR" "$BUILD_DIR/rk-unpacked/rootfs-v2.img" -comp zstd
@@ -133,6 +174,7 @@ echo ">> Update version..."
 git rev-parse --short HEAD >> "$BUILD_DIR/UPFILE_VERSION"
 
 echo ">> Repacking firmware..."
-"$ROOT_DIR/scripts/helpers/pack_firmware.sh" "$BUILD_DIR" "$OUT_FIRMWARE"
+BASE_FIRMWARE="$IN_FIRMWARE" \
+  "$ROOT_DIR/scripts/helpers/pack_firmware.sh" "$BUILD_DIR" "$OUT_FIRMWARE"
 
 echo ">> Done: $OUT_FIRMWARE"

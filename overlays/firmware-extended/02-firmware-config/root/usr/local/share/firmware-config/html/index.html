@@ -637,8 +637,10 @@
                 if (newText) appendLog(newText);
 
                 const lastLine = (xhr.responseText.trim().split('\n').pop() || '');
-                if (lastLine.startsWith('SUCCESS:')) {
-                    setMessage('Success - System will reboot', 'var(--success)');
+                if (lastLine.startsWith('REBOOT_PENDING:')) {
+                    setMessage('Upgrade accepted - reboot pending', 'var(--success)');
+                } else if (lastLine.startsWith('SUCCESS:')) {
+                    setMessage('Completed successfully', 'var(--success)');
                 } else if (lastLine.startsWith('ERROR:')) {
                     setMessage('Upgrade failed', 'var(--error)');
                 } else {
@@ -714,10 +716,13 @@
 
             // Parse last line for SUCCESS/ERROR status
             const lastLine = fullLog.trim().split('\n').pop() || '';
+            const isPending = lastLine.startsWith('REBOOT_PENDING:');
             const isSuccess = lastLine.startsWith('SUCCESS:');
             const isFailed = lastLine.startsWith('ERROR:');
 
-            if (isSuccess) {
+            if (isPending) {
+                setMessage('Upgrade accepted - reboot pending', 'var(--success)');
+            } else if (isSuccess) {
                 setMessage('Completed successfully', 'var(--success)');
             } else if (isFailed) {
                 setMessage('Failed', 'var(--error)');

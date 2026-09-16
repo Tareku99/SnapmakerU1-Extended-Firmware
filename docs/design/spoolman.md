@@ -171,3 +171,10 @@ it does not maintain its own WebSocket connection.
 8. Klipper stores the metadata in `print_task_config` and notifies subscribers.
    `AFC_lane.get_status()` surfaces `spool_id` to Fluidd/Mainsail.
 
+When the ACE integration is enabled, an explicit SpoolLink assignment is
+preserved while ACE refreshes the slot's display metadata. A newly reported
+ACE RFID transition clears the previous assignment before applying the new
+filament identity. Moonraker's global active-spool indicator still follows the
+currently selected toolhead; the per-channel assignments remain in Klipper's
+`print_task_config` state.
+

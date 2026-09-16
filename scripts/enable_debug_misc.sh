@@ -24,7 +24,8 @@ echo ">> Enabling debug misc partition"
 cp -v "$ROOT_DIR/tools/debug/debug_misc.img" "$TEMP_DIR/rk-unpacked/misc.img"
 
 echo ">> Repacking firmware"
-"$ROOT_DIR/scripts/helpers/pack_firmware.sh" "$TEMP_DIR" "$OUT_FIRMWARE"
+ALLOW_PROTECTED_PARTITION_CHANGE=1 \
+  "$ROOT_DIR/scripts/helpers/pack_firmware.sh" "$TEMP_DIR" "$OUT_FIRMWARE"
 
 echo ">> Done: $OUT_FIRMWARE"
 

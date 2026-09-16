@@ -1,0 +1,50 @@
+# Firmware scripts and configuration execute on Linux. Keep their checked-out
+# bytes stable on Windows and Linux so a build cannot package CRLF shebangs.
+* text eol=lf
+
+*.sh text eol=lf
+*.bash text eol=lf
+*.py text eol=lf
+*.c text eol=lf
+*.h text eol=lf
+*.cc text eol=lf
+*.cpp text eol=lf
+*.go text eol=lf
+*.mk text eol=lf
+*.cfg text eol=lf
+*.conf text eol=lf
+*.service text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+*.txt text eol=lf
+*.patch text eol=lf
+
+# Firmware and other binary assets must never be line-ending normalized.
+*.bin binary
+*.img binary
+*.so binary
+*.a binary
+*.o binary
+*.elf binary
+*.bmp binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.gif binary
+*.zip binary
+*.gz binary
+*.xz binary
+*.tar binary
+*.whl binary
+*.pyc binary
+*.pyo binary
+
+# These files have no useful extension but are executed by the target.
+overlays/**/root/etc/init.d/* text eol=lf
+overlays/**/root/etc/hooks/** text eol=lf
+overlays/**/root/usr/local/bin/* text eol=lf
+overlays/**/root/usr/local/sbin/* text eol=lf
+overlays/**/root/usr/sbin/* text eol=lf

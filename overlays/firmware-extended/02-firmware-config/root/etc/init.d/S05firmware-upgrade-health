@@ -1,0 +1,30 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-PackageHomePage: https://github.com/paxx12-snapmaker-u1/SnapmakerU1-Extended-Firmware
+# SPDX-FileCopyrightText: Copyright (c) 2026 @paxx12
+
+# Start the guard before optional extended services. The guard itself waits
+# for the core services, so it can also diagnose a later service-start failure.
+
+DAEMON=/usr/local/bin/firmware-upgrade-health.sh
+
+case "${1:-}" in
+    start)
+        [ -f "$DAEMON" ] || exit 0
+        /bin/sh "$DAEMON" start
+        ;;
+    stop)
+        [ -f "$DAEMON" ] || exit 0
+        /bin/sh "$DAEMON" stop
+        ;;
+    restart|reload)
+        /bin/sh "$0" stop
+        /bin/sh "$0" start
+        ;;
+    *)
+        echo "Usage: $0 {start|stop|restart}"
+        exit 1
+        ;;
+esac
+
+exit 0

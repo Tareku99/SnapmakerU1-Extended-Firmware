@@ -14,7 +14,14 @@ ACE units on a Snapmaker U1. It supports the original ACE Pro
 The firmware-side implementation is disabled until it is enabled in Firmware
 Config. This branch has been tested on a real U1 with an ACE 2 Pro, including
 connection, RFID metadata, loading, unloading, recovery, and a successful
-multi-color print. Additional hardware combinations remain experimental.
+seven-hour single-color print. Additional hardware combinations remain
+experimental.
+
+ACE can be enabled alongside the separate Spoolman/SpoolLink and AFC-Lite
+integrations. ACE controls the physical filament movement, AFC-Lite provides
+the Fluidd/Mainsail lane and status interface, and SpoolLink resolves and
+tracks spool identity in Spoolman. AFC-Lite remains a UI/status compatibility
+layer; it does not provide physical AFC hardware control.
 
 ## Provenance and attribution
 
