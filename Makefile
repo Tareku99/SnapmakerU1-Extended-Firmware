@@ -98,14 +98,14 @@ test: test-validation firmware/$(FIRMWARE_FILE)
 
 .PHONY: test-validation
 test-validation:
-	bash scripts/tests/validate_firmware_test.sh
-	PYTHONDONTWRITEBYTECODE=1 python3 scripts/tests/firmware_upgrade_preflight_test.py
-	PYTHONDONTWRITEBYTECODE=1 python3 scripts/tests/cache_file_test.py
-	PYTHONDONTWRITEBYTECODE=1 python3 scripts/tests/spoollink_mapping_test.py
-	PYTHONDONTWRITEBYTECODE=1 python3 scripts/tests/spoollink_behavior_test.py
-	bash scripts/tests/camera_hook_test.sh
-	bash scripts/tests/firmware_upgrade_health_test.sh
-	bash scripts/tests/upgrade_path_test.sh
+	bash scripts/tests/validate_firmware_test.sh || { echo "::error title=Validation test failed::validate_firmware_test.sh"; exit 1; }
+	PYTHONDONTWRITEBYTECODE=1 python3 scripts/tests/firmware_upgrade_preflight_test.py || { echo "::error title=Validation test failed::firmware_upgrade_preflight_test.py"; exit 1; }
+	PYTHONDONTWRITEBYTECODE=1 python3 scripts/tests/cache_file_test.py || { echo "::error title=Validation test failed::cache_file_test.py"; exit 1; }
+	PYTHONDONTWRITEBYTECODE=1 python3 scripts/tests/spoollink_mapping_test.py || { echo "::error title=Validation test failed::spoollink_mapping_test.py"; exit 1; }
+	PYTHONDONTWRITEBYTECODE=1 python3 scripts/tests/spoollink_behavior_test.py || { echo "::error title=Validation test failed::spoollink_behavior_test.py"; exit 1; }
+	bash scripts/tests/camera_hook_test.sh || { echo "::error title=Validation test failed::camera_hook_test.sh"; exit 1; }
+	bash scripts/tests/firmware_upgrade_health_test.sh || { echo "::error title=Validation test failed::firmware_upgrade_health_test.sh"; exit 1; }
+	bash scripts/tests/upgrade_path_test.sh || { echo "::error title=Validation test failed::upgrade_path_test.sh"; exit 1; }
 
 # ================= Helpers =================
 
