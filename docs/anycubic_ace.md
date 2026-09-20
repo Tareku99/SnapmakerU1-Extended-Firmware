@@ -63,8 +63,10 @@ The mod is not included in the normal `extended` profile. Build an image with:
 ./dev.sh make build PROFILE=extended-ace
 ~~~
 
-The pull request workflow also produces a separate `extended-ace-build`
-artifact. No hardware test is performed by the workflow.
+The pull request workflow selects the profile configured in
+`.github/workflows/pull_request.yaml`. This branch selects `extended-ace`, so
+its main artifact is named `extended-ace-build`. No hardware test is performed
+by the workflow.
 
 After flashing:
 
