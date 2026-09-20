@@ -21,12 +21,13 @@ Automatic filament metadata sync and spool tracking via
 
 ## Using with ACE and AFC-Lite
 
-Spoolman/SpoolLink can be enabled alongside the Anycubic ACE integration and
-AFC-Lite. ACE controls the physical filament movement, AFC-Lite provides the
-Fluidd/Mainsail lane and status interface, and SpoolLink manages spool identity
-and tracking through Spoolman. A new ACE RFID spool clears the previous
-SpoolLink assignment, while an explicit SpoolLink assignment remains selected
-through ACE metadata refreshes.
+Spoolman/SpoolLink is designed to be enabled alongside the Anycubic ACE
+integration and AFC-Lite. ACE controls the physical filament movement, AFC-Lite
+provides the Fluidd/Mainsail lane and status interface, and SpoolLink manages
+spool identity and tracking through Spoolman. A new ACE RFID spool clears the
+previous SpoolLink assignment, while an explicit SpoolLink assignment remains
+selected through ACE metadata refreshes. The combined setup still requires
+additional hardware validation.
 
 This does not turn AFC-Lite into physical AFC hardware support. The separate
 full AFC-Klipper-Add-On is a different integration and should not be enabled

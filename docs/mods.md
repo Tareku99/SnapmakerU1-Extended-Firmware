@@ -4,15 +4,15 @@ title: Mods
 
 # Mods
 
-`overlays/mods/<name>/` is a space for personal, experimental overlays that
-aren't part of the maintained `firmware-extended` build. It exists so people
-who maintain their own fork or feature set can capture that work as a single
-composable overlay directory instead of carrying a whole separate fork.
+`overlays/mods/<name>/` contains optional, composable overlays that are not part
+of the normal `firmware-extended` profile. Most are personal experimental
+overlays maintained in their author's fork; the project also keeps maintained
+experimental mods here, including `ace`.
 
 ## Naming
 
-Name your mod directory after your GitHub username, not after the feature
-it adds:
+Name a personal mod directory after your GitHub username, not after the
+feature it adds:
 
 ```text
 overlays/mods/<username>/
@@ -20,9 +20,8 @@ overlays/mods/<username>/
 
 This keeps mods from different people from colliding on a name, and keeps
 `overlays/mods/` readable as "whose overlay is this" rather than a pile of
-similarly-named feature folders. `devel` and `qemu` are the exceptions to
-this: they're maintained mods used by the project's own dev environment,
-not personal ones.
+similarly-named feature folders. `devel`, `qemu`, and `ace` are exceptions to
+this: they are maintained project mods, not personal ones.
 
 ## Adding a mod
 
@@ -41,16 +40,18 @@ not personal ones.
 ### CI test builds
 
 CI builds the profile configured in
-`.github/workflows/pull_request.yaml`. It defaults to the unmodded `extended`
-profile. To test one mod, change `BUILD_PROFILE` to `extended-<username>`; to
-combine mods, append their profile names in order, such as
-`extended-<mod1>-<mod2>`. The uploaded artifact uses the selected profile name.
+`.github/workflows/pull_request.yaml`. This branch selects `extended-ace`, so
+the uploaded artifact is `extended-ace-build`. To test a different profile,
+change `BUILD_PROFILE`; to combine mods, append their names with hyphens, such
+as `extended-<mod1>-<mod2>`. The uploaded artifact uses the selected profile
+name.
 
 ### Directory layout
 
-A mod is just a directory of numbered overlays under your username, same as
-any other overlay category. For example, a mod named `alice` that adds a
-custom MOTD and disables a stock service might look like:
+Personal mods are directories of numbered overlays under the author's
+username. Maintained project mods use their feature name instead. For example,
+a personal mod named `alice` that adds a custom MOTD and disables a stock
+service might look like:
 
 ```text
 overlays/mods/alice/
@@ -124,8 +125,9 @@ file, which belongs in `root/` instead.
 
 ## Rules
 
-- Mods are not maintained by this project. Keeping a mod working against
-  the latest firmware is the mod author's responsibility.
+- Personal mods are not maintained by this project. Keeping one working against
+  the latest firmware is the mod author's responsibility. Maintained project
+  mods such as `ace`, `devel`, and `qemu` are the exception.
 - Mods are not guaranteed to work together. If combining two mods breaks
   something, that's for the mods involved to sort out, not this repo.
 - Mods do not ship in public releases. They only exist for people who build

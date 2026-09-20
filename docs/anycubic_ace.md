@@ -13,15 +13,18 @@ ACE units on a Snapmaker U1. It supports the original ACE Pro
 
 The firmware-side implementation is disabled until it is enabled in Firmware
 Config. This branch has been tested on a real U1 with an ACE 2 Pro, including
-connection, RFID metadata, loading, unloading, recovery, and a successful
-seven-hour single-color print. Additional hardware combinations remain
+connection, RFID/slot detection, loading, tool changes, and a successful
+seven-hour single-color print. Full ACE-side unloading, repeated recovery,
+multi-color printing, and additional hardware combinations remain
 experimental.
 
-ACE can be enabled alongside the separate Spoolman/SpoolLink and AFC-Lite
-integrations. ACE controls the physical filament movement, AFC-Lite provides
-the Fluidd/Mainsail lane and status interface, and SpoolLink resolves and
-tracks spool identity in Spoolman. AFC-Lite remains a UI/status compatibility
-layer; it does not provide physical AFC hardware control.
+The implementation is designed to coexist with the separate
+Spoolman/SpoolLink and AFC-Lite integrations. ACE controls physical filament
+movement, AFC-Lite provides the Fluidd/Mainsail lane and status interface, and
+SpoolLink resolves and tracks spool identity in Spoolman. Their combined
+behavior still requires additional hardware validation. AFC-Lite remains a
+UI/status compatibility layer; it does not provide physical AFC hardware
+control.
 
 ## Provenance and attribution
 
@@ -30,11 +33,12 @@ The initial ACE protocol/runtime baseline was taken from
 [c9c22e391cee89bc7d7894ce4a25876a59565cbc](https://github.com/decay71/multiACE/tree/c9c22e391cee89bc7d7894ce4a25876a59565cbc).
 The source is GPLv3, and the derived source file retains its attribution.
 This commit identifies the starting source snapshot only; it is not the
-version of Paxx ACE. From the split commit
+version or release of this implementation. From the split commit
 `5baed629d0f74dd7c657f4786c0fc03c667933b8` onward, the activation,
 configuration, macro layout, and U1 integration are maintained independently
-as Paxx ACE in this firmware project. Paxx ACE does not follow MultiACE release
-numbering or promise compatibility with MultiACE installations or state.
+as the ACE implementation in this firmware project. It does not follow
+MultiACE release numbering or promise compatibility with MultiACE installations
+or state.
 
 The runtime status reports live ACE hardware and integration state only. It
 does not maintain or display a separate ACE release number; the surrounding
@@ -284,10 +288,11 @@ validation:
 8. Test explicit `ACE_DRY_STOP_1`–`ACE_DRY_STOP_4` targeting.
 9. Disable the feature and confirm the stock U1 modules are restored.
 
-The current hardware result includes a successful real print with bed heating,
-timelapse, and dynamic flow calibration. The intermittent first-attempt
-no-flow/pre-loading case and full ACE-side unloading behavior should still be
-repeated before calling the integration complete.
+The current verified hardware result includes a successful seven-hour
+single-color print. Multi-color printing, the intermittent first-attempt
+no-flow/pre-loading case, full ACE-side unloading behavior, and the combined
+Spoolman/AFC-Lite setup should still be repeated before calling the integration
+complete.
 
 ## Safety checklist
 

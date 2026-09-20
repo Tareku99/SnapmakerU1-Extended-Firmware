@@ -16,10 +16,11 @@ To provide an ability to manage U1 extruders via `Fluidd/Mainsail` interface.
 
 ## Using with ACE and Spoolman
 
-AFC-Lite can be enabled alongside the Anycubic ACE integration and the
-Spoolman/SpoolLink integration. ACE controls the physical filament movement,
-AFC-Lite exposes the U1 extruders as AFC-compatible lanes in Fluidd/Mainsail,
-and SpoolLink handles spool lookup and tracking through Spoolman.
+AFC-Lite is designed to be enabled alongside the Anycubic ACE integration and
+the Spoolman/SpoolLink integration. ACE controls the physical filament
+movement, AFC-Lite exposes the U1 extruders as AFC-compatible lanes in
+Fluidd/Mainsail, and SpoolLink handles spool lookup and tracking through
+Spoolman. The combined setup still requires additional hardware validation.
 
 Spoolman support is provided by SpoolLink, not by AFC-Lite itself. The separate
 full AFC-Klipper-Add-On is a different integration for physical AFC hardware

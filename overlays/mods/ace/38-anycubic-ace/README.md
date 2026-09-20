@@ -1,6 +1,6 @@
 # Experimental Anycubic ACE integration
 
-This personal mod adds an experimental Anycubic ACE Pro / ACE 2 Pro path to a
+This experimental mod adds an Anycubic ACE Pro / ACE 2 Pro path to a
 Snapmaker U1. It stays disabled until it is selected in Firmware Config, so a
 printer can remain on the stock U1 feeder path when ACE is not in use.
 
@@ -47,7 +47,7 @@ For connector pinouts, wiring, commands, attribution, and the first hardware
 test checklist, see the [Anycubic ACE wiring and test guide](../../../../docs/anycubic_ace.md).
 
 The current test setup has successfully completed ACE 2 Pro connection,
-RFID/slot detection, loading, unloading, recovery, and a real multi-color U1
-print. Additional hardware combinations and repeated recovery cases remain
-experimental, so the pull request should remain marked as a draft until those
-tests are complete.
+RFID/slot detection, loading, tool changes, and a seven-hour single-color U1
+print. Full ACE-side unloading, repeated recovery, multi-color printing, and
+combined Spoolman/AFC-Lite behavior remain experimental until those tests are
+complete.
