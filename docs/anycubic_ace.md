@@ -60,10 +60,10 @@ hardware work:
 The mod is not included in the normal `extended` profile. Build an image with:
 
 ~~~bash
-./dev.sh make build PROFILE=extended-tareku99
+./dev.sh make build PROFILE=extended-ace
 ~~~
 
-The pull request workflow also produces a separate `extended-tareku99-build`
+The pull request workflow also produces a separate `extended-ace-build`
 artifact. No hardware test is performed by the workflow.
 
 After flashing:

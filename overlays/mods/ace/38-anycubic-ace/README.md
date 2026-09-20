@@ -7,7 +7,7 @@ printer can remain on the stock U1 feeder path when ACE is not in use.
 Build it with:
 
 ```bash
-./dev.sh make build PROFILE=extended-tareku99
+./dev.sh make build PROFILE=extended-ace
 ```
 
 After flashing the image:

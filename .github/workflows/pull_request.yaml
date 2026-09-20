@@ -123,15 +123,15 @@ jobs:
           U1_extended-afc_*_upgrade.bin
           U1_extended-afc_*_upgrade.bin.validation.txt
 
-    - name: Build PR630 ACE firmware (experimental)
-      run: ./dev.sh make build PROFILE=extended-tareku99 OUTPUT_FILE=U1_extended-tareku99_${{ env.GIT_VERSION }}_upgrade.bin
+    - name: Build ACE firmware (experimental)
+      run: ./dev.sh make build PROFILE=extended-ace OUTPUT_FILE=U1_extended-ace_${{ env.GIT_VERSION }}_upgrade.bin
 
     - uses: actions/upload-artifact@v4
       with:
-        name: extended-tareku99-build
+        name: extended-ace-build
         path: |
-          U1_extended-tareku99_*_upgrade.bin
-          U1_extended-tareku99_*_upgrade.bin.validation.txt
+          U1_extended-ace_*_upgrade.bin
+          U1_extended-ace_*_upgrade.bin.validation.txt
 
     - name: Publish validation summaries
       run: |
@@ -165,7 +165,7 @@ jobs:
         echo "$(date +%s)" > pr-info/job_end
         echo "${{ env.BUILD_PROFILE }}-build" > pr-info/artifacts
         echo extended-afc-build >> pr-info/artifacts
-        echo extended-tareku99-build >> pr-info/artifacts
+        echo extended-ace-build >> pr-info/artifacts
 
     - name: Upload PR info
       if: github.event_name == 'pull_request'
