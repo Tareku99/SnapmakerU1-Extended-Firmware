@@ -114,16 +114,6 @@ jobs:
           U1_${{ env.BUILD_PROFILE }}_${{ env.GIT_VERSION }}_upgrade.bin
           U1_${{ env.BUILD_PROFILE }}_${{ env.GIT_VERSION }}_upgrade.bin.validation.txt
 
-    - name: Build with Extended Fluidd + AFC firmware (experimental)
-      run: ./dev.sh make build PROFILE=extended-afc OUTPUT_FILE=U1_extended-afc_${{ env.GIT_VERSION }}_upgrade.bin
-
-    - uses: actions/upload-artifact@v4
-      with:
-        name: extended-afc-build
-        path: |
-          U1_extended-afc_*_upgrade.bin
-          U1_extended-afc_*_upgrade.bin.validation.txt
-
     - name: Publish validation summaries
       run: |
         for report in U1_*_upgrade.bin.validation.txt; do
@@ -155,7 +145,6 @@ jobs:
         echo "${{ env.JOB_START }}" > pr-info/job_start
         echo "$(date +%s)" > pr-info/job_end
         echo "${{ env.BUILD_PROFILE }}-build" > pr-info/artifacts
-        echo extended-afc-build >> pr-info/artifacts
 
     - name: Upload PR info
       if: github.event_name == 'pull_request'
