@@ -19,13 +19,43 @@ FILENAME="$(basename "$TARGET")"
 set -e
 mkdir -p "$TARGET_DIR"
 
-if [[ ! -f "$TARGET" ]]; then
-  echo ">> Downloading $FILENAME..."
-  wget -O "$TARGET" "$URL"
+TEMP_TARGET=""
+cleanup() {
+  if [[ -n "$TEMP_TARGET" ]]; then
+    rm -f -- "$TEMP_TARGET"
+  fi
+}
+trap cleanup EXIT
+
+hash_matches() {
+  echo "$SHA256  $1" | sha256sum --check --status
+}
+
+if [[ -f "$TARGET" ]] && hash_matches "$TARGET"; then
+  echo ">> Verified cached $FILENAME"
+else
+  if [[ -f "$TARGET" ]]; then
+    echo "[!] Cached checksum mismatch for $FILENAME; downloading a verified replacement"
+  else
+    echo ">> Downloading $FILENAME..."
+  fi
+
+  TEMP_TARGET="$TARGET.tmp.$$"
+  rm -f -- "$TEMP_TARGET"
+  if ! wget -O "$TEMP_TARGET" "$URL"; then
+    echo "[!] Download failed for $FILENAME"
+    exit 1
+  fi
+  if ! hash_matches "$TEMP_TARGET"; then
+    echo "[!] SHA256 checksum mismatch for downloaded $FILENAME"
+    exit 1
+  fi
+  mv -f -- "$TEMP_TARGET" "$TARGET"
+  TEMP_TARGET=""
 fi
 
 echo ">> Verifying $TARGET checksum..."
-if ! echo "$SHA256  $TARGET" | sha256sum --check --status; then
+if ! hash_matches "$TARGET"; then
   echo "[!] SHA256 checksum mismatch for $FILENAME"
   exit 1
 fi

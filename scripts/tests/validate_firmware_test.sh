@@ -24,16 +24,27 @@ make_rootfs() {
   chmod +x "$rootfs/bin/sh" "$rootfs/usr/bin/env" "$rootfs/usr/bin/python3"
 
   printf '#!/bin/sh\nexit 0\n' > "$rootfs/etc/init.d/rcS"
+  printf '#!/bin/sh\nexit 0\n' > "$rootfs/etc/init.d/S05firmware-upgrade-health"
   printf '#!/bin/sh\nexit 0\n' > "$rootfs/etc/init.d/S49extended-config"
   printf '#!/bin/sh\nexit 0\n' > "$rootfs/etc/init.d/S90lmd"
   chmod +x \
     "$rootfs/etc/init.d/rcS" \
+    "$rootfs/etc/init.d/S05firmware-upgrade-health" \
     "$rootfs/etc/init.d/S49extended-config" \
     "$rootfs/etc/init.d/S90lmd"
 
   printf '#!/usr/bin/env python3\nprint("validator fixture")\n' \
     > "$rootfs/usr/local/bin/extended-config.py"
   chmod +x "$rootfs/usr/local/bin/extended-config.py"
+
+  printf '#!/bin/sh\nexit 0\n' \
+    > "$rootfs/usr/local/bin/firmware-upgrade-health.sh"
+  chmod +x "$rootfs/usr/local/bin/firmware-upgrade-health.sh"
+  printf '#!/usr/bin/env python3\npass\n' \
+    > "$rootfs/usr/local/bin/firmware-upgrade-preflight.py"
+  printf '#!/bin/sh\nexit 0\n' \
+    > "$rootfs/usr/local/bin/firmware-upgrade-preflight.sh"
+  chmod +x "$rootfs/usr/local/bin/firmware-upgrade-preflight.sh"
 
   printf '1.0.0-test\n' > "$rootfs/etc/FULLVERSION"
   printf 'test-build\n' > "$rootfs/etc/BUILD_VERSION"
@@ -78,5 +89,40 @@ if "$VALIDATOR" --rootfs "$non_executable_rootfs" > "$TEST_ROOT/mode.log" 2>&1; 
   exit 1
 fi
 grep -q "not executable" "$TEST_ROOT/mode.log"
+
+non_executable_preflight_rootfs="$TEST_ROOT/non-executable-preflight-rootfs"
+cp -a "$good_rootfs" "$non_executable_preflight_rootfs"
+chmod -x \
+  "$non_executable_preflight_rootfs/usr/local/bin/firmware-upgrade-preflight.sh"
+if "$VALIDATOR" --rootfs "$non_executable_preflight_rootfs" \
+    > "$TEST_ROOT/preflight-mode.log" 2>&1; then
+  echo "Validator accepted a non-executable firmware preflight helper." >&2
+  exit 1
+fi
+grep -q "usr/local/bin/firmware-upgrade-preflight.sh" "$TEST_ROOT/preflight-mode.log"
+grep -q "not executable" "$TEST_ROOT/preflight-mode.log"
+
+crlf_runtime_rootfs="$TEST_ROOT/crlf-runtime-rootfs"
+cp -a "$good_rootfs" "$crlf_runtime_rootfs"
+printf '#!/bin/sh\r\nexit 0\r\n' \
+  > "$crlf_runtime_rootfs/etc/init.d/S49extended-config"
+if "$VALIDATOR" --rootfs "$crlf_runtime_rootfs" \
+    > "$TEST_ROOT/crlf-runtime.log" 2>&1; then
+  echo "Validator accepted CRLF line endings in a runtime init script." >&2
+  exit 1
+fi
+grep -q "S49extended-config contains CRLF or mixed line endings" \
+  "$TEST_ROOT/crlf-runtime.log"
+
+missing_preflight_parser_rootfs="$TEST_ROOT/missing-preflight-parser-rootfs"
+cp -a "$good_rootfs" "$missing_preflight_parser_rootfs"
+rm "$missing_preflight_parser_rootfs/usr/local/bin/firmware-upgrade-preflight.py"
+if "$VALIDATOR" --rootfs "$missing_preflight_parser_rootfs" \
+    > "$TEST_ROOT/preflight-parser.log" 2>&1; then
+  echo "Validator accepted a rootfs missing the firmware container parser." >&2
+  exit 1
+fi
+grep -q "usr/local/bin/firmware-upgrade-preflight.py" \
+  "$TEST_ROOT/preflight-parser.log"
 
 echo "Firmware validator self-test passed."

@@ -257,9 +257,12 @@ validate_rootfs() {
   local required file_path
   local required_paths=(
     etc/init.d/rcS
+    etc/init.d/S05firmware-upgrade-health
     etc/init.d/S49extended-config
     etc/init.d/S90lmd
     usr/local/bin/extended-config.py
+    usr/local/bin/firmware-upgrade-health.sh
+    usr/local/bin/firmware-upgrade-preflight.sh
   )
   for required in "${required_paths[@]}"; do
     file_path="$ROOTFS_PATH/$required"
@@ -268,6 +271,14 @@ validate_rootfs() {
     elif [[ ! -x "$file_path" ]]; then
       fail "required runtime file is not executable: $required"
     fi
+  done
+
+  local required_files=(
+    usr/local/bin/firmware-upgrade-preflight.py
+  )
+  for required in "${required_files[@]}"; do
+    file_path="$ROOTFS_PATH/$required"
+    [[ -f "$file_path" ]] || fail "required runtime file is missing: $required"
   done
 
   for required in etc/FULLVERSION etc/BUILD_VERSION; do

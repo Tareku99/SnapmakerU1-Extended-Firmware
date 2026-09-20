@@ -148,7 +148,8 @@ fi
 # mode bits (for example a Windows bind mount used by local Docker builds).
 for runtime_file in \
   "$ROOTFS_DIR/etc/init.d/S05firmware-upgrade-health" \
-  "$ROOTFS_DIR/usr/local/bin/firmware-upgrade-health.sh"; do
+  "$ROOTFS_DIR/usr/local/bin/firmware-upgrade-health.sh" \
+  "$ROOTFS_DIR/usr/local/bin/firmware-upgrade-preflight.sh"; do
   if [[ -f "$runtime_file" ]]; then
     chmod 0755 "$runtime_file"
   fi

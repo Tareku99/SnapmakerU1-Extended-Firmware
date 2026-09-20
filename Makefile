@@ -42,14 +42,15 @@ endif
 	./scripts/create_firmware.sh $< $(BUILD_DIR) $@ $(OVERLAYS)
 
 .PHONY: build
-build: $(OUTPUT_FILE)
+build: validate-build
 
 .PHONY: validate-build
 validate-build: $(OUTPUT_FILE) firmware/$(FIRMWARE_FILE)
 	./scripts/validate_firmware.sh \
 		--firmware "$(OUTPUT_FILE)" \
 		--base-firmware "firmware/$(FIRMWARE_FILE)" \
-		--profile "$(PROFILE)"
+		--profile "$(PROFILE)" \
+		--report "$(OUTPUT_FILE).validation.txt"
 
 EXTRACT_DIR := tmp/extracted-$(FIRMWARE_VERSION)
 
@@ -98,6 +99,10 @@ test: test-validation firmware/$(FIRMWARE_FILE)
 .PHONY: test-validation
 test-validation:
 	bash scripts/tests/validate_firmware_test.sh
+	PYTHONDONTWRITEBYTECODE=1 python3 scripts/tests/firmware_upgrade_preflight_test.py
+	PYTHONDONTWRITEBYTECODE=1 python3 scripts/tests/cache_file_test.py
+	PYTHONDONTWRITEBYTECODE=1 python3 scripts/tests/spoollink_mapping_test.py
+	PYTHONDONTWRITEBYTECODE=1 python3 scripts/tests/spoollink_behavior_test.py
 	bash scripts/tests/camera_hook_test.sh
 	bash scripts/tests/firmware_upgrade_health_test.sh
 	bash scripts/tests/upgrade_path_test.sh

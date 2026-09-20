@@ -75,21 +75,33 @@ write_state() {
     old_umask="$(umask)"
     umask 077
     tmp_file="$STATE_FILE.tmp.$$"
-    {
-        printf 'state=%s\n' "${state:-}"
-        printf 'source_slot=%s\n' "${source_slot:-}"
-        printf 'active_slot=%s\n' "${active_slot:-}"
-        printf 'candidate_sha256=%s\n' "${candidate_sha256:-}"
-        printf 'candidate_file=%s\n' "${candidate_file:-}"
-        printf 'candidate_commit=%s\n' "${candidate_commit:-}"
-        printf 'candidate_upfile_version=%s\n' "${candidate_upfile_version:-}"
-        printf 'started_at=%s\n' "${started_at:-}"
-        printf 'health_started_at=%s\n' "${health_started_at:-}"
-        printf 'health_attempts=%s\n' "${health_attempts:-0}"
-        printf 'verified_at=%s\n' "${verified_at:-}"
-        printf 'failure_reason=%s\n' "${failure_reason:-}"
-        printf 'rollback_attempted=%s\n' "${rollback_attempted:-0}"
-    } > "$tmp_file" && mv -f "$tmp_file" "$STATE_FILE"
+    rm -f "$tmp_file" || {
+        umask "$old_umask" || true
+        return 1
+    }
+    if ! printf 'state=%s\nsource_slot=%s\nactive_slot=%s\ncandidate_sha256=%s\ncandidate_file=%s\ncandidate_commit=%s\ncandidate_upfile_version=%s\nstarted_at=%s\nhealth_started_at=%s\nhealth_attempts=%s\nverified_at=%s\nfailure_reason=%s\nrollback_attempted=%s\n' \
+        "${state:-}" \
+        "${source_slot:-}" \
+        "${active_slot:-}" \
+        "${candidate_sha256:-}" \
+        "${candidate_file:-}" \
+        "${candidate_commit:-}" \
+        "${candidate_upfile_version:-}" \
+        "${started_at:-}" \
+        "${health_started_at:-}" \
+        "${health_attempts:-0}" \
+        "${verified_at:-}" \
+        "${failure_reason:-}" \
+        "${rollback_attempted:-0}" > "$tmp_file"; then
+        rm -f "$tmp_file"
+        umask "$old_umask" || true
+        return 1
+    fi
+    if ! mv -f "$tmp_file" "$STATE_FILE"; then
+        rm -f "$tmp_file"
+        umask "$old_umask" || true
+        return 1
+    fi
     umask "$old_umask"
 }
 
@@ -217,19 +229,21 @@ begin_upgrade() {
             return 1
             ;;
     esac
-    if [ "${state:-}" = pending ] && [ "${source_slot:-}" != "$current" ]; then
-        echo "ERROR: An upgrade is already pending on slot $source_slot." >&2
-        return 1
-    fi
     if [ "${state:-}" = pending ] && [ -n "${started_at:-}" ]; then
         case "$started_at" in
             ''|*[!0-9]*) age=$((STALE_PENDING_SECONDS + 1)) ;;
             *) age=$(( $(now) - started_at )) ;;
         esac
         if [ "$age" -lt "$STALE_PENDING_SECONDS" ]; then
-            echo "ERROR: An upgrade is already being verified; wait for reboot or recovery." >&2
+            if [ "${source_slot:-}" != "$current" ]; then
+                printf 'ERROR: The upgrade from slot %s is still being verified on slot %s; wait for recovery.\n' \
+                    "${source_slot:-unknown}" "$current" >&2
+            else
+                echo "ERROR: An upgrade is already being verified; wait for reboot or recovery." >&2
+            fi
             return 1
         fi
+        log "Previous upgrade health check is stale after ${age}s; allowing a new user-requested upgrade"
     fi
 
     state=pending
@@ -238,6 +252,11 @@ begin_upgrade() {
     candidate_file="$(basename "$firmware")"
     candidate_commit="$(sed -n 's/^candidate_commit=//p' "$METADATA_FILE" 2>/dev/null | tail -n 1)"
     candidate_upfile_version="$(sed -n 's/^candidate_upfile_version=//p' "$METADATA_FILE" 2>/dev/null | tail -n 1)"
+    failure_reason=
+    if [ -z "$candidate_commit" ]; then
+        state=not_monitored
+        failure_reason=build_commit_missing
+    fi
     candidate_sha256=unavailable
     if command -v sha256sum >/dev/null 2>&1; then
         candidate_sha256="$(sha256sum "$firmware" 2>/dev/null | awk '{print $1}')"
@@ -247,10 +266,17 @@ begin_upgrade() {
     health_started_at=
     health_attempts=0
     verified_at=
-    failure_reason=
     rollback_attempted=0
     write_state || return 1
-    log "Upgrade marked pending: source=$source_slot candidate=$candidate_file sha256=$candidate_sha256"
+    if ! sync; then
+        echo "ERROR: Could not flush the pending upgrade record; the upgrade was not started." >&2
+        return 1
+    fi
+    if [ "$state" = not_monitored ]; then
+        log "Upgrade will not be health-monitored: candidate has no project commit identity (source=$source_slot candidate=$candidate_file)"
+    else
+        log "Upgrade marked pending: source=$source_slot candidate=$candidate_file sha256=$candidate_sha256"
+    fi
 }
 
 mark_verified() {
@@ -371,6 +397,10 @@ status() {
             ;;
         not_switched)
             printf 'not switched: updater did not select a new slot (active=%s)\n' "$current"
+            ;;
+        not_monitored)
+            printf 'not monitored: candidate=%s, version=%s (no project commit identity)\n' \
+                "${candidate_file:-unknown}" "${candidate_upfile_version:-unknown}"
             ;;
         *)
             printf '%s: active=%s\n' "${state:-unknown}" "$current"

@@ -4,8 +4,8 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026 @paxx12
 
 # Validate the outer upgrade container before handing it to the device updater.
-# This is intentionally lightweight: it checks the signed/container structure
-# without executing anything from the candidate firmware.
+# It checks container integrity without executing anything from the candidate
+# firmware; it is not a cryptographic signature check.
 
 set -eu
 
@@ -20,8 +20,8 @@ if [ ! -f "$firmware" ]; then
   exit 1
 fi
 
-if ! command -v upfileUnpack >/dev/null 2>&1; then
-  echo "ERROR: upfileUnpack is unavailable; refusing to upgrade." >&2
+if ! command -v python3 >/dev/null 2>&1; then
+  echo "ERROR: Python 3 is unavailable; refusing to upgrade." >&2
   exit 1
 fi
 
@@ -34,19 +34,22 @@ case "$size" in
     ;;
 esac
 if [ "$size" -lt "$min_size" ]; then
-  echo "ERROR: Firmware is only $((size / 1024)) KB; refusing to upgrade." >&2
+  echo "ERROR: Firmware is only $((size / 1024)) KB; expected at least 50 MB, refusing to upgrade." >&2
   exit 1
 fi
 
-mkdir -p /userdata/.tmp_upgrade
-tmpdir="$(mktemp -d /userdata/.tmp_upgrade/preflight.XXXXXX)"
+tmp_root="${FIRMWARE_UPGRADE_TMP_DIR:-/userdata/.tmp_upgrade}"
+state_dir="${FIRMWARE_UPGRADE_STATE_DIR:-/userdata/.extended-firmware-upgrade}"
+mkdir -p "$tmp_root"
+tmpdir="$(mktemp -d "$tmp_root/preflight.XXXXXX")"
 cleanup() {
   rm -rf "$tmpdir"
 }
 trap cleanup EXIT HUP INT TERM
 
 echo "Validating firmware container..."
-if ! upfileUnpack -i "$firmware" -o "$tmpdir"; then
+parser="$(dirname "$0")/firmware-upgrade-preflight.py"
+if ! python3 "$parser" "$firmware" "$tmpdir"; then
   echo "ERROR: Firmware container validation failed." >&2
   exit 1
 fi
@@ -59,15 +62,19 @@ for required in update.img at32f403a.bin at32f415.bin MCU_DESC UPFILE_VERSION UP
 done
 
 magic="$(head -c 4 "$tmpdir/update.img" 2>/dev/null || true)"
-if [ "$magic" != "RKAF" ]; then
-  echo "ERROR: update.img is not a valid Rockchip update image." >&2
-  exit 1
-fi
+case "$magic" in
+  RKAF|RKFW)
+    ;;
+  *)
+    echo "ERROR: update.img is not a valid Rockchip update image." >&2
+    exit 1
+    ;;
+esac
 
 # Preserve only non-sensitive candidate identity for the post-boot health
-# gate. The commit stamp is present in images built by this repository; stock
-# images simply leave it empty and use the structural/service checks instead.
-metadata_dir=/userdata/.extended-firmware-upgrade
+# gate. Images built by this repository carry a short commit stamp. A package
+# without that identity can still be installed, but cannot be health-monitored.
+metadata_dir="$state_dir"
 metadata_file="$metadata_dir/preflight-metadata"
 mkdir -p "$metadata_dir"
 upfile_version="$(tr -d '\r\n' < "$tmpdir/UPFILE_VERSION")"

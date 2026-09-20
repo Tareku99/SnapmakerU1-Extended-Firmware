@@ -16,6 +16,25 @@ set -eo pipefail
 TARGET_DIR="$CACHE_DIR/v4l2-mpp"
 cache_git.sh "$TARGET_DIR" "$GIT_URL" "$GIT_SHA"
 
+# The pinned v4l2-mpp build extracts Live555 from a tarball whose config files
+# are read-only. Its cross-compile path appends to the generated config after
+# extraction, so make that one generated file writable before the dependency
+# build starts. Keep this compatibility fix local to the pinned dependency;
+# do not alter the source archive or the final firmware contents.
+LIVE_MEDIA_SCRIPT="$TARGET_DIR/deps/compile_livemedia.sh"
+if [[ ! -f "$LIVE_MEDIA_SCRIPT" ]]; then
+  echo "Error: pinned v4l2-mpp dependency is missing $LIVE_MEDIA_SCRIPT."
+  exit 1
+fi
+LIVE_MEDIA_DIR="$TARGET_DIR/deps/live"
+if [[ -d "$LIVE_MEDIA_DIR" ]]; then
+  chmod u+rwx "$LIVE_MEDIA_DIR"
+  chmod u+rw "$LIVE_MEDIA_DIR"/config.armlinux* 2>/dev/null || true
+fi
+if ! grep -q '^  chmod u+w config\.armlinux-no-std-lib$' "$LIVE_MEDIA_SCRIPT"; then
+  sed -i '/^  cp config\.armlinux config\.armlinux-no-std-lib$/a\  chmod u+w config.armlinux-no-std-lib' "$LIVE_MEDIA_SCRIPT"
+fi
+
 echo ">> Setting up cross-compilation environment..."
 export CROSS_COMPILE=aarch64-linux-gnu-
 export CC="${CROSS_COMPILE}gcc"
