@@ -149,7 +149,6 @@ jobs:
         name: validation-diagnostics
         path: |
           validation.log
-          tmp/**/rootfs-validation.txt
           U1_*_upgrade.bin.validation.txt
         if-no-files-found: ignore
 
