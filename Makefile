@@ -46,7 +46,7 @@ build: validate-build
 
 .PHONY: validate-build
 validate-build: $(OUTPUT_FILE) firmware/$(FIRMWARE_FILE)
-	./scripts/validate_firmware.sh \
+	bash ./scripts/validate_firmware.sh \
 		--firmware "$(OUTPUT_FILE)" \
 		--base-firmware "firmware/$(FIRMWARE_FILE)" \
 		--profile "$(PROFILE)" \

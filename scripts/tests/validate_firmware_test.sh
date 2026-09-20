@@ -56,7 +56,7 @@ make_rootfs() {
 
 good_rootfs="$TEST_ROOT/good-rootfs"
 make_rootfs "$good_rootfs"
-"$VALIDATOR" \
+bash "$VALIDATOR" \
   --rootfs "$good_rootfs" \
   --profile test-profile \
   --report "$TEST_ROOT/good-report.txt" \
@@ -68,7 +68,7 @@ bad_rootfs="$TEST_ROOT/bad-rootfs"
 cp -a "$good_rootfs" "$bad_rootfs"
 printf '#!/bin/sh\r\nexit 0\r\n' > "$bad_rootfs/etc/init.d/S49extended-config"
 
-if "$VALIDATOR" --rootfs "$bad_rootfs" > "$TEST_ROOT/bad.log" 2>&1; then
+if bash "$VALIDATOR" --rootfs "$bad_rootfs" > "$TEST_ROOT/bad.log" 2>&1; then
   echo "Validator accepted a CRLF init script." >&2
   exit 1
 fi
@@ -78,7 +78,7 @@ missing_interpreter_rootfs="$TEST_ROOT/missing-interpreter-rootfs"
 cp -a "$good_rootfs" "$missing_interpreter_rootfs"
 printf '#!/usr/bin/env definitely-missing-python\nprint("fixture")\n' \
   > "$missing_interpreter_rootfs/usr/local/bin/extended-config.py"
-if "$VALIDATOR" --rootfs "$missing_interpreter_rootfs" > "$TEST_ROOT/missing.log" 2>&1; then
+if bash "$VALIDATOR" --rootfs "$missing_interpreter_rootfs" > "$TEST_ROOT/missing.log" 2>&1; then
   echo "Validator accepted a missing shebang interpreter." >&2
   exit 1
 fi
@@ -87,7 +87,7 @@ grep -q "env program is missing" "$TEST_ROOT/missing.log"
 non_executable_rootfs="$TEST_ROOT/non-executable-rootfs"
 cp -a "$good_rootfs" "$non_executable_rootfs"
 chmod -x "$non_executable_rootfs/etc/init.d/S49extended-config"
-if "$VALIDATOR" --rootfs "$non_executable_rootfs" > "$TEST_ROOT/mode.log" 2>&1; then
+if bash "$VALIDATOR" --rootfs "$non_executable_rootfs" > "$TEST_ROOT/mode.log" 2>&1; then
   echo "Validator accepted a non-executable init script." >&2
   exit 1
 fi
@@ -97,7 +97,7 @@ non_executable_preflight_rootfs="$TEST_ROOT/non-executable-preflight-rootfs"
 cp -a "$good_rootfs" "$non_executable_preflight_rootfs"
 chmod -x \
   "$non_executable_preflight_rootfs/usr/local/bin/firmware-upgrade-preflight.sh"
-if "$VALIDATOR" --rootfs "$non_executable_preflight_rootfs" \
+if bash "$VALIDATOR" --rootfs "$non_executable_preflight_rootfs" \
     > "$TEST_ROOT/preflight-mode.log" 2>&1; then
   echo "Validator accepted a non-executable firmware preflight helper." >&2
   exit 1
@@ -109,7 +109,7 @@ crlf_runtime_rootfs="$TEST_ROOT/crlf-runtime-rootfs"
 cp -a "$good_rootfs" "$crlf_runtime_rootfs"
 printf '#!/bin/sh\r\nexit 0\r\n' \
   > "$crlf_runtime_rootfs/etc/init.d/S49extended-config"
-if "$VALIDATOR" --rootfs "$crlf_runtime_rootfs" \
+if bash "$VALIDATOR" --rootfs "$crlf_runtime_rootfs" \
     > "$TEST_ROOT/crlf-runtime.log" 2>&1; then
   echo "Validator accepted CRLF line endings in a runtime init script." >&2
   exit 1
@@ -120,7 +120,7 @@ grep -q "S49extended-config contains CRLF or mixed line endings" \
 missing_preflight_parser_rootfs="$TEST_ROOT/missing-preflight-parser-rootfs"
 cp -a "$good_rootfs" "$missing_preflight_parser_rootfs"
 rm "$missing_preflight_parser_rootfs/usr/local/bin/firmware-upgrade-preflight.py"
-if "$VALIDATOR" --rootfs "$missing_preflight_parser_rootfs" \
+if bash "$VALIDATOR" --rootfs "$missing_preflight_parser_rootfs" \
     > "$TEST_ROOT/preflight-parser.log" 2>&1; then
   echo "Validator accepted a rootfs missing the firmware container parser." >&2
   exit 1
