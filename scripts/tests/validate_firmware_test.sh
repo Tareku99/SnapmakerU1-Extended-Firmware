@@ -5,6 +5,9 @@
 
 set -euo pipefail
 
+# Keep CI failures actionable without publishing fixture contents or environment data.
+trap 'status=$?; echo "::error title=Validator self-test assertion failed::validate_firmware_test.sh line ${LINENO} (exit ${status})"; exit "$status"' ERR
+
 SCRIPT_DIR="$(cd -- "$(dirname -- "$0")" && pwd)"
 VALIDATOR="$SCRIPT_DIR/../validate_firmware.sh"
 TEST_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/u1-validator-test.XXXXXX")"
