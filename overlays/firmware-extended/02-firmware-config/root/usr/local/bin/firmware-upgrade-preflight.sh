@@ -26,17 +26,12 @@ if ! command -v python3 >/dev/null 2>&1; then
 fi
 
 size="$(stat -c%s "$firmware" 2>/dev/null || wc -c < "$firmware")"
-min_size=$((50 * 1024 * 1024))
 case "$size" in
   ''|*[!0-9]*)
     echo "ERROR: Could not determine firmware size." >&2
     exit 1
     ;;
 esac
-if [ "$size" -lt "$min_size" ]; then
-  echo "ERROR: Firmware is only $((size / 1024)) KB; expected at least 50 MB, refusing to upgrade." >&2
-  exit 1
-fi
 
 tmp_root="${FIRMWARE_UPGRADE_TMP_DIR:-/userdata/.tmp_upgrade}"
 state_dir="${FIRMWARE_UPGRADE_STATE_DIR:-/userdata/.extended-firmware-upgrade}"
@@ -54,7 +49,7 @@ if ! python3 "$parser" "$firmware" "$tmpdir"; then
   exit 1
 fi
 
-for required in update.img at32f403a.bin at32f415.bin MCU_DESC UPFILE_VERSION UPFILE_BUILD_DATE; do
+for required in update.img at32f403a.bin at32f415.bin MCU_DESC; do
   if [ ! -s "$tmpdir/$required" ]; then
     echo "ERROR: Firmware container is missing $required." >&2
     exit 1
@@ -77,10 +72,16 @@ esac
 metadata_dir="$state_dir"
 metadata_file="$metadata_dir/preflight-metadata"
 mkdir -p "$metadata_dir"
-upfile_version="$(tr -d '\r\n' < "$tmpdir/UPFILE_VERSION")"
+upfile_version=
+if [ -s "$tmpdir/UPFILE_VERSION" ]; then
+  upfile_version="$(tr -d '\r\n' < "$tmpdir/UPFILE_VERSION" || true)"
+fi
 # The build appends git's short hash directly to the fixed-width UPFILE
 # version field, so it may look like 1.6.0.267abcdef0 rather than a new line.
-candidate_commit="$(printf '%s' "$upfile_version" | sed -n 's/.*\([0-9A-Fa-f]\{7\}\)$/\1/p')"
+candidate_commit=
+if [ -n "$upfile_version" ]; then
+  candidate_commit="$(printf '%s' "$upfile_version" | sed -n 's/.*\([0-9A-Fa-f]\{7\}\)$/\1/p')"
+fi
 metadata_tmp="$metadata_file.tmp.$$"
 {
   printf 'candidate_commit=%s\n' "$candidate_commit"
@@ -88,4 +89,4 @@ metadata_tmp="$metadata_file.tmp.$$"
 } > "$metadata_tmp"
 mv -f "$metadata_tmp" "$metadata_file"
 
-echo "Firmware preflight passed ($((size / 1024 / 1024)) MB)."
+echo "Firmware preflight passed ($size bytes; $((size / 1024 / 1024)) MB)."

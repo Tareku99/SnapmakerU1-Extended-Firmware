@@ -7,6 +7,7 @@ import importlib.util
 import os
 import pathlib
 import re
+import shutil
 import subprocess
 import tempfile
 import unittest
@@ -36,7 +37,6 @@ def make_upfile(
     path,
     update_payload=b"RKFW fixture",
     file_count=4,
-    minimum_size=0,
     overlap=False,
     container_version=1,
     version=b"1.6.0.267abcdef0",
@@ -74,8 +74,6 @@ def make_upfile(
         firmware.write(encode_data(header))
         firmware.write(b"".join(entries))
         firmware.write(b"".join(payloads))
-        if minimum_size > firmware.tell():
-            firmware.truncate(minimum_size)
 
 
 def corrupt_byte(path, offset):
@@ -224,11 +222,11 @@ class FirmwareUpgradePreflightTests(unittest.TestCase):
             extract_root = root / "extract"
             state_root = root / "state"
             extract_root.mkdir()
-            make_upfile(image, minimum_size=50 * 1024 * 1024)
+            make_upfile(image)
 
             result = self.run_preflight(image, extract_root, state_root)
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-            self.assertIn("Firmware preflight passed (50 MB)", result.stdout)
+            self.assertIn("Firmware preflight passed (", result.stdout)
             metadata = state_root / "preflight-metadata"
             original_metadata = metadata.read_bytes()
             self.assertIn(b"candidate_commit=abcdef0\n", original_metadata)
@@ -238,7 +236,6 @@ class FirmwareUpgradePreflightTests(unittest.TestCase):
             make_upfile(
                 legacy_image,
                 update_payload=b"RKAF fixture",
-                minimum_size=50 * 1024 * 1024,
             )
             legacy_result = self.run_preflight(legacy_image, extract_root, state_root)
             self.assertEqual(
@@ -250,7 +247,6 @@ class FirmwareUpgradePreflightTests(unittest.TestCase):
             make_upfile(
                 bad_magic,
                 update_payload=b"BAD! fixture",
-                minimum_size=50 * 1024 * 1024,
             )
             rejected = self.run_preflight(bad_magic, extract_root, state_root)
             self.assertNotEqual(rejected.returncode, 0)
@@ -262,7 +258,7 @@ class FirmwareUpgradePreflightTests(unittest.TestCase):
         os.name == "posix" and pathlib.Path("/bin/sh").exists(),
         "printer-side shell integration test requires a POSIX environment",
     )
-    def test_preflight_rejects_short_file_before_unpacking(self):
+    def test_preflight_rejects_truncated_file_by_structure(self):
         with tempfile.TemporaryDirectory(prefix="u1-preflight-short-") as temp:
             root = pathlib.Path(temp)
             image = root / "too-small.bin"
@@ -274,8 +270,55 @@ class FirmwareUpgradePreflightTests(unittest.TestCase):
             result = self.run_preflight(image, extract_root, state_root)
 
             self.assertNotEqual(result.returncode, 0)
-            self.assertIn("expected at least 50 MB", result.stderr)
+            self.assertIn("firmware header is truncated", result.stderr)
             self.assertFalse(state_root.exists())
+
+    @unittest.skipUnless(
+        os.name == "posix" and pathlib.Path("/bin/sh").exists(),
+        "printer-side shell integration test requires a POSIX environment",
+    )
+    def test_preflight_does_not_require_metadata_sidecar_files(self):
+        with tempfile.TemporaryDirectory(prefix="u1-preflight-metadata-") as temp:
+            root = pathlib.Path(temp)
+            wrapper_dir = root / "bin"
+            wrapper_dir.mkdir()
+            wrapper = wrapper_dir / "firmware-upgrade-preflight.sh"
+            shutil.copy(PREFLIGHT_SCRIPT, wrapper)
+            (wrapper_dir / "firmware-upgrade-preflight.py").write_text(
+                """
+import pathlib
+import sys
+
+output = pathlib.Path(sys.argv[2])
+(output / "update.img").write_bytes(b"RKFW fixture")
+(output / "at32f403a.bin").write_bytes(b"MCU1 fixture")
+(output / "at32f415.bin").write_bytes(b"MCU2 fixture")
+(output / "MCU_DESC").write_bytes(b"MCU description")
+""".strip()
+                + "\n",
+                encoding="utf-8",
+            )
+            image = root / "candidate.bin"
+            image.write_bytes(b"not parsed by the fixture parser")
+            state_root = root / "state"
+            env = os.environ.copy()
+            env["FIRMWARE_UPGRADE_TMP_DIR"] = str(root / "extract")
+            env["FIRMWARE_UPGRADE_STATE_DIR"] = str(state_root)
+
+            result = subprocess.run(
+                ["/bin/sh", str(wrapper), str(image)],
+                capture_output=True,
+                text=True,
+                env=env,
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertIn("Firmware preflight passed", result.stdout)
+            self.assertEqual(
+                (state_root / "preflight-metadata").read_text(encoding="utf-8"),
+                "candidate_commit=\ncandidate_upfile_version=\n",
+            )
 
 
 if __name__ == "__main__":

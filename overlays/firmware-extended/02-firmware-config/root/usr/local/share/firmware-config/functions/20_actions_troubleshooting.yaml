@@ -14,6 +14,16 @@ actions:
         background: false
         message: "System status:"
 
+      reset-firmware-upgrade-safety:
+        label: Reset Firmware Upgrade Safety State
+        description: Clear a pending or failed firmware-upgrade health check so a new upgrade can be started.
+        confirm: "Reset the firmware-upgrade safety state? Do this only after confirming that no upgrade is still in progress."
+        cmd:
+          - /bin/sh
+          - /usr/local/bin/firmware-upgrade-health.sh
+          - reset
+        message: "Resetting firmware-upgrade safety state..."
+
       collect-logs:
         label: Collect System Logs
         description: Bundle and download a system log archive for troubleshooting.

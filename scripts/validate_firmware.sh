@@ -263,6 +263,7 @@ validate_rootfs() {
     usr/local/bin/extended-config.py
     usr/local/bin/firmware-upgrade-health.sh
     usr/local/bin/firmware-upgrade-preflight.sh
+    usr/local/bin/firmware-upgrade-prepare.sh
   )
   for required in "${required_paths[@]}"; do
     file_path="$ROOTFS_PATH/$required"

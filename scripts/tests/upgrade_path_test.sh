@@ -29,6 +29,23 @@ assert_in_order() {
 CONFIG_UPGRADE="$ROOT_DIR/overlays/firmware-extended/02-firmware-config/root/usr/local/share/firmware-config/functions/30_upgrade.yaml"
 CHANNEL_UPGRADE="$ROOT_DIR/overlays/firmware-extended/40-feature-upgrade-firmware/root/usr/local/share/firmware-config/functions/18_firmware_upgrade.yaml"
 DEV_UPGRADE="$ROOT_DIR/scripts/dev/upgrade-firmware.sh"
+PREPARE_HELPER="$ROOT_DIR/overlays/firmware-extended/02-firmware-config/root/usr/local/bin/firmware-upgrade-prepare.sh"
+
+[[ -f "$PREPARE_HELPER" ]] || {
+  echo "The shared firmware preparation helper is missing." >&2
+  exit 1
+}
+
+if grep -Eq 'unpack_firmware|[[:space:]]min_size=' "$CONFIG_UPGRADE"; then
+  echo "The main upgrade paths still contain duplicated unpacking or arbitrary size gates." >&2
+  exit 1
+fi
+
+if grep -Fq 'STALE_PENDING_SECONDS' \
+    "$ROOT_DIR/overlays/firmware-extended/02-firmware-config/root/usr/local/bin/firmware-upgrade-health.sh"; then
+  echo "The health gate still contains automatic stale-state replacement." >&2
+  exit 1
+fi
 
 grep -Eq '^build:[[:space:]]+validate-build$' "$ROOT_DIR/Makefile" || {
   echo "The standard build target does not require full package validation." >&2
@@ -49,23 +66,19 @@ for workflow in "$ROOT_DIR"/.github/workflows/*; do
 done
 
 assert_in_order "$CONFIG_UPGRADE" \
-  'firmware-upgrade-preflight\.sh /userdata/url_upgrade\.bin' \
-  'firmware-upgrade-health\.sh begin /userdata/url_upgrade\.bin' \
+  'firmware-upgrade-prepare\.sh /userdata/url_upgrade\.bin' \
   'systemUpgrade\.sh upgrade all /userdata/url_upgrade\.bin'
 assert_in_order "$CONFIG_UPGRADE" \
-  'firmware-upgrade-preflight\.sh "\$1"' \
-  'firmware-upgrade-health\.sh begin "\$1"' \
+  'firmware-upgrade-prepare\.sh "\$1"' \
   'systemUpgrade\.sh upgrade all "\$1"'
 assert_in_order "$CHANNEL_UPGRADE" \
-  'firmware-upgrade-preflight\.sh", BIN_FILE' \
-  'firmware-upgrade-health\.sh", "begin", BIN_FILE' \
+  'firmware-upgrade-prepare\.sh", BIN_FILE' \
   'systemUpgrade\.sh", "upgrade", "all", BIN_FILE'
 assert_in_order "$DEV_UPGRADE" \
   'make validate-build' \
   'sshpass .* scp' \
   'sshpass .* ssh' \
-  'firmware-upgrade-preflight\.sh /userdata/firmware_upgrade\.bin' \
-  'firmware-upgrade-health\.sh begin /userdata/firmware_upgrade\.bin' \
+  'firmware-upgrade-prepare\.sh /userdata/firmware_upgrade\.bin' \
   'systemUpgrade\.sh upgrade all /userdata/firmware_upgrade\.bin'
 
 echo "Firmware upgrade path guard tests passed."

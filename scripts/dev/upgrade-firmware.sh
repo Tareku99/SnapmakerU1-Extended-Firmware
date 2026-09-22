@@ -22,6 +22,5 @@ make validate-build OUTPUT_FILE="$OUTPUT_FILE" PROFILE="$PROFILE" OVERWRITE=1
 sshpass -p "$PASSWORD" scp $SSH_OPTS "$OUTPUT_FILE" "$SSH_HOST:/userdata/firmware_upgrade.bin"
 sshpass -p "$PASSWORD" ssh $SSH_OPTS "$SSH_HOST" \
   'set -e
-  /usr/local/bin/firmware-upgrade-preflight.sh /userdata/firmware_upgrade.bin
-  /bin/sh /usr/local/bin/firmware-upgrade-health.sh begin /userdata/firmware_upgrade.bin
+  /usr/local/bin/firmware-upgrade-prepare.sh /userdata/firmware_upgrade.bin
   /home/lava/bin/systemUpgrade.sh upgrade all /userdata/firmware_upgrade.bin'

@@ -23,7 +23,6 @@ UPDATE_ENGINE="${FIRMWARE_UPGRADE_UPDATE_ENGINE:-updateEngine}"
 MAX_CHECKS="${FIRMWARE_UPGRADE_MAX_CHECKS:-36}"
 STABLE_CHECKS="${FIRMWARE_UPGRADE_STABLE_CHECKS:-3}"
 POLL_INTERVAL="${FIRMWARE_UPGRADE_POLL_INTERVAL:-5}"
-STALE_PENDING_SECONDS="${FIRMWARE_UPGRADE_STALE_PENDING_SECONDS:-900}"
 
 runtime_path() {
     if [ -n "$RUNTIME_ROOT" ]; then
@@ -136,25 +135,19 @@ check_first_line_has_no_cr() {
 
 check_runtime_files() {
     for relative in \
-        /etc/FULLVERSION \
         /etc/BUILD_VERSION \
-        /etc/BUILD_PROFILE \
-        /etc/init.d/S49extended-config \
+        /etc/init.d/S05firmware-upgrade-health \
         /etc/init.d/S60klipper \
         /etc/init.d/S61moonraker \
-        /usr/local/bin/extended-config.py \
-        /usr/local/bin/firmware-config.py \
         /usr/local/bin/firmware-upgrade-health.sh; do
         file="$(runtime_path "$relative")"
         [ -s "$file" ] || return 1
     done
 
     for relative in \
-        /etc/init.d/S49extended-config \
+        /etc/init.d/S05firmware-upgrade-health \
         /etc/init.d/S60klipper \
         /etc/init.d/S61moonraker \
-        /usr/local/bin/extended-config.py \
-        /usr/local/bin/firmware-config.py \
         /usr/local/bin/firmware-upgrade-health.sh; do
         check_first_line_has_no_cr "$(runtime_path "$relative")" || return 1
     done
@@ -194,15 +187,6 @@ check_core_services() {
     printer_info="$($curl_bin -fsS --max-time 5 http://127.0.0.1:7125/printer/info 2>/dev/null)" || return 1
     printf '%s' "$printer_info" | grep -Eq '"state"[[:space:]]*:[[:space:]]*"ready"' || return 1
 
-    config_file="$(runtime_path /home/lava/printer_data/config/extended/extended2.cfg)"
-    config_helper="$(runtime_path /usr/local/bin/extended-config.py)"
-    config_enabled="true"
-    if [ -x "$config_helper" ] && [ -f "$config_file" ]; then
-        config_enabled="$($config_helper get "$config_file" web firmware_config true 2>/dev/null || printf 'true')"
-    fi
-    if [ "$config_enabled" = true ]; then
-        "$curl_bin" -fsS --max-time 5 http://127.0.0.1:9091/api/status >/dev/null 2>&1 || return 1
-    fi
     return 0
 }
 
@@ -229,21 +213,20 @@ begin_upgrade() {
             return 1
             ;;
     esac
-    if [ "${state:-}" = pending ] && [ -n "${started_at:-}" ]; then
-        case "$started_at" in
-            ''|*[!0-9]*) age=$((STALE_PENDING_SECONDS + 1)) ;;
-            *) age=$(( $(now) - started_at )) ;;
-        esac
-        if [ "$age" -lt "$STALE_PENDING_SECONDS" ]; then
+    case "${state:-}" in
+        pending|rollback_requested|rollback_failed)
             if [ "${source_slot:-}" != "$current" ]; then
-                printf 'ERROR: The upgrade from slot %s is still being verified on slot %s; wait for recovery.\n' \
+                printf 'ERROR: The upgrade from slot %s is still being verified on slot %s; wait for recovery or reset the safety state.\n' \
                     "${source_slot:-unknown}" "$current" >&2
             else
-                echo "ERROR: An upgrade is already being verified; wait for reboot or recovery." >&2
+                echo "ERROR: An upgrade is still being verified; wait for recovery or reset the safety state." >&2
             fi
             return 1
-        fi
-        log "Previous upgrade health check is stale after ${age}s; allowing a new user-requested upgrade"
+            ;;
+    esac
+
+    if [ "${state:-}" = reset ]; then
+        log "Starting a new user-requested upgrade after an explicit safety-state reset"
     fi
 
     state=pending
@@ -294,6 +277,32 @@ mark_not_switched() {
     failure_reason="slot_did_not_change"
     write_state || return 1
     log "Upgrade was not verified: active slot remained $active_slot"
+}
+
+reset_state() {
+    if [ ! -f "$STATE_FILE" ]; then
+        echo "Firmware upgrade safety state is already idle."
+        return 0
+    fi
+
+    load_state
+    case "${state:-}" in
+        pending|rollback_requested|rollback_failed)
+            ;;
+        *)
+            echo "Firmware upgrade safety state does not need a reset (state=${state:-unknown})."
+            return 0
+            ;;
+    esac
+    stop_monitor
+    active_slot="$(current_slot)"
+    state=reset
+    failure_reason=manual_reset
+    health_started_at=
+    health_attempts=0
+    rollback_attempted=0
+    write_state || return 1
+    log "Firmware upgrade safety state reset explicitly on slot $active_slot"
 }
 
 rollback_once() {
@@ -402,6 +411,9 @@ status() {
             printf 'not monitored: candidate=%s, version=%s (no project commit identity)\n' \
                 "${candidate_file:-unknown}" "${candidate_upfile_version:-unknown}"
             ;;
+        reset)
+            printf 'reset: ready for a new upgrade (previous state was cleared explicitly)\n'
+            ;;
         *)
             printf '%s: active=%s\n' "${state:-unknown}" "$current"
             ;;
@@ -448,8 +460,11 @@ case "${1:-}" in
     status)
         status
         ;;
+    reset)
+        reset_state
+        ;;
     *)
-        echo "Usage: $0 {begin <firmware-file>|monitor|start|stop|status}" >&2
+        echo "Usage: $0 {begin <firmware-file>|monitor|start|stop|status|reset}" >&2
         exit 2
         ;;
 esac

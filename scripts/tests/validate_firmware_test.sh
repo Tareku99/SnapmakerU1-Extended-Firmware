@@ -43,6 +43,9 @@ make_rootfs() {
   printf '#!/bin/sh\nexit 0\n' \
     > "$rootfs/usr/local/bin/firmware-upgrade-health.sh"
   chmod +x "$rootfs/usr/local/bin/firmware-upgrade-health.sh"
+  printf '#!/bin/sh\nexit 0\n' \
+    > "$rootfs/usr/local/bin/firmware-upgrade-prepare.sh"
+  chmod +x "$rootfs/usr/local/bin/firmware-upgrade-prepare.sh"
   printf '#!/usr/bin/env python3\npass\n' \
     > "$rootfs/usr/local/bin/firmware-upgrade-preflight.py"
   printf '#!/bin/sh\nexit 0\n' \

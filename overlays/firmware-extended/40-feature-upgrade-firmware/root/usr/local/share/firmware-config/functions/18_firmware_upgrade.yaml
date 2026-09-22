@@ -167,21 +167,12 @@ quick_actions:
                 print("SHA256 verified.")
 
                 os.replace(tmp_file, BIN_FILE)
-                preflight = subprocess.run(
-                    ["/usr/local/bin/firmware-upgrade-preflight.sh", BIN_FILE],
+                prepare = subprocess.run(
+                    ["/usr/local/bin/firmware-upgrade-prepare.sh", BIN_FILE],
                     text=True,
                 )
-                if preflight.returncode != 0:
-                    print("ERROR: Firmware preflight failed; the upgrade was not started.")
-                    os.remove(BIN_FILE)
-                    return 1
-
-                health_begin = subprocess.run(
-                    ["/bin/sh", "/usr/local/bin/firmware-upgrade-health.sh", "begin", BIN_FILE],
-                    text=True,
-                )
-                if health_begin.returncode != 0:
-                    print("ERROR: Could not record the pending upgrade; the upgrade was not started.")
+                if prepare.returncode != 0:
+                    print("ERROR: Firmware preparation failed; the upgrade was not started.")
                     os.remove(BIN_FILE)
                     return 1
 

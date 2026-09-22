@@ -28,6 +28,7 @@ make_runtime() {
     printf 'extended\n' > "$root/etc/BUILD_PROFILE"
     for file in \
         "$root/etc/init.d/S49extended-config" \
+        "$root/etc/init.d/S05firmware-upgrade-health" \
         "$root/etc/init.d/S60klipper" \
         "$root/etc/init.d/S61moonraker" \
         "$root/usr/local/bin/extended-config.py" \
@@ -66,7 +67,7 @@ if run_helper "$PASS_ROOT" begin "$PASS_ROOT/second.bin" > "$PASS_ROOT/pending.l
     echo "Health gate accepted a second upgrade while the first was pending." >&2
     exit 1
 fi
-assert_file_contains "$PASS_ROOT/pending.log" 'already being verified'
+assert_file_contains "$PASS_ROOT/pending.log" 'still being verified'
 printf 'androidboot.slot_suffix=_b\n' > "$PASS_ROOT/cmdline"
 FIRMWARE_UPGRADE_STABLE_CHECKS=3 FIRMWARE_UPGRADE_MAX_CHECKS=3 \
     run_helper "$PASS_ROOT" monitor
@@ -116,17 +117,19 @@ assert_file_contains "$SYNC_FAILURE_ROOT/state/state" '^state=pending$'
 STALE_PENDING_ROOT="$TEST_DIR/stale-pending"
 make_runtime "$STALE_PENDING_ROOT"
 printf 'candidate\n' > "$STALE_PENDING_ROOT/candidate.bin"
-FIRMWARE_UPGRADE_NOW=1000 FIRMWARE_UPGRADE_STALE_PENDING_SECONDS=900 \
+FIRMWARE_UPGRADE_NOW=1000 \
     run_helper "$STALE_PENDING_ROOT" begin "$STALE_PENDING_ROOT/candidate.bin"
 printf 'androidboot.slot_suffix=_b\n' > "$STALE_PENDING_ROOT/cmdline"
-if FIRMWARE_UPGRADE_NOW=1899 FIRMWARE_UPGRADE_STALE_PENDING_SECONDS=900 \
+if FIRMWARE_UPGRADE_NOW=1900 \
     run_helper "$STALE_PENDING_ROOT" begin "$STALE_PENDING_ROOT/candidate.bin" \
     > "$STALE_PENDING_ROOT/recent.log" 2>&1; then
-    echo "Health gate replaced a recent pending upgrade on a different slot." >&2
+    echo "Health gate replaced a pending upgrade without an explicit reset." >&2
     exit 1
 fi
-assert_file_contains "$STALE_PENDING_ROOT/recent.log" 'still being verified'
-FIRMWARE_UPGRADE_NOW=1900 FIRMWARE_UPGRADE_STALE_PENDING_SECONDS=900 \
+assert_file_contains "$STALE_PENDING_ROOT/recent.log" 'reset the safety state'
+run_helper "$STALE_PENDING_ROOT" reset
+assert_file_contains "$STALE_PENDING_ROOT/state/state" '^state=reset$'
+FIRMWARE_UPGRADE_NOW=1900 \
     run_helper "$STALE_PENDING_ROOT" begin "$STALE_PENDING_ROOT/candidate.bin"
 assert_file_contains "$STALE_PENDING_ROOT/state/state" '^state=pending$'
 assert_file_contains "$STALE_PENDING_ROOT/state/state" '^source_slot=B$'
