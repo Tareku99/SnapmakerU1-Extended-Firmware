@@ -105,8 +105,18 @@ write_state() {
 }
 
 current_slot() {
-    suffix="$(sed -n 's/.*androidboot\.slot_suffix=\(_[ab]\).*/\1/p' "$CMDLINE_FILE" 2>/dev/null | head -n 1)"
-    case "$suffix" in
+    # The U1 bootloader uses the historical `android_slotsufix` spelling
+    # (sic), while standard Android builds use `androidboot.slot_suffix`.
+    # Accept either form, but reject missing or conflicting markers.
+    suffixes="$(
+        {
+            sed -n 's/.*androidboot\.slot_suffix=\(_[ab]\).*/\1/p' \
+                "$CMDLINE_FILE" 2>/dev/null
+            sed -n 's/.*android_slotsufix=\(_[ab]\).*/\1/p' \
+                "$CMDLINE_FILE" 2>/dev/null
+        } | sort -u
+    )"
+    case "$suffixes" in
         _a) printf 'A\n' ;;
         _b) printf 'B\n' ;;
         *) printf 'unknown\n' ;;

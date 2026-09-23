@@ -38,7 +38,8 @@ make_runtime() {
     done
     mkdir -p "$root/state"
     printf 'candidate_commit=abc1234\n' > "$root/state/preflight-metadata"
-    printf 'androidboot.slot_suffix=_a\n' > "$root/cmdline"
+    # The real U1 bootloader uses this historical spelling.
+    printf 'android_slotsufix=_a\n' > "$root/cmdline"
 }
 
 run_helper() {
@@ -148,6 +149,13 @@ run_helper "$UNMONITORED_ROOT" status > "$UNMONITORED_ROOT/status.log"
 assert_file_contains "$UNMONITORED_ROOT/status.log" 'not monitored'
 run_helper "$UNMONITORED_ROOT" begin "$UNMONITORED_ROOT/candidate.bin"
 
+STANDARD_MARKER_ROOT="$TEST_DIR/standard-marker"
+make_runtime "$STANDARD_MARKER_ROOT"
+printf 'androidboot.slot_suffix=_a\n' > "$STANDARD_MARKER_ROOT/cmdline"
+printf 'candidate\n' > "$STANDARD_MARKER_ROOT/candidate.bin"
+run_helper "$STANDARD_MARKER_ROOT" begin "$STANDARD_MARKER_ROOT/candidate.bin"
+assert_file_contains "$STANDARD_MARKER_ROOT/state/state" '^source_slot=A$'
+
 ROLLBACK_ROOT="$TEST_DIR/rollback"
 make_runtime "$ROLLBACK_ROOT"
 printf 'candidate\n' > "$ROLLBACK_ROOT/candidate.bin"
@@ -210,6 +218,24 @@ fi
 assert_file_contains "$UNKNOWN_SLOT_ROOT/begin.log" 'Could not determine the active firmware slot'
 [[ ! -f "$UNKNOWN_SLOT_ROOT/state/state" ]] || {
     echo "Health gate persisted a pending upgrade with an unknown active slot." >&2
+    exit 1
+}
+
+CONFLICTING_SLOT_ROOT="$TEST_DIR/conflicting-slot"
+make_runtime "$CONFLICTING_SLOT_ROOT"
+printf 'candidate\n' > "$CONFLICTING_SLOT_ROOT/candidate.bin"
+printf 'androidboot.slot_suffix=_b android_slotsufix=_a\n' > \
+    "$CONFLICTING_SLOT_ROOT/cmdline"
+if run_helper "$CONFLICTING_SLOT_ROOT" begin \
+    "$CONFLICTING_SLOT_ROOT/candidate.bin" > \
+    "$CONFLICTING_SLOT_ROOT/begin.log" 2>&1; then
+    echo "Health gate accepted conflicting active-slot markers." >&2
+    exit 1
+fi
+assert_file_contains "$CONFLICTING_SLOT_ROOT/begin.log" \
+    'Could not determine the active firmware slot'
+[[ ! -f "$CONFLICTING_SLOT_ROOT/state/state" ]] || {
+    echo "Health gate persisted a pending upgrade with conflicting slot markers." >&2
     exit 1
 }
 
