@@ -36,6 +36,17 @@ PREPARE_HELPER="$ROOT_DIR/overlays/firmware-extended/02-firmware-config/root/usr
   exit 1
 }
 
+grep -Fq 'WARNING: Post-boot health monitoring could not be prepared' \
+  "$PREPARE_HELPER" || {
+  echo "Optional post-boot health monitoring is still a hard upgrade gate." >&2
+  exit 1
+}
+if grep -Fq 'Could not record the pending upgrade; the upgrade was not started' \
+  "$PREPARE_HELPER"; then
+  echo "The preparation helper still hard-fails when health state cannot be recorded." >&2
+  exit 1
+fi
+
 if grep -Eq 'unpack_firmware|[[:space:]]min_size=' "$CONFIG_UPGRADE"; then
   echo "The main upgrade paths still contain duplicated unpacking or arbitrary size gates." >&2
   exit 1

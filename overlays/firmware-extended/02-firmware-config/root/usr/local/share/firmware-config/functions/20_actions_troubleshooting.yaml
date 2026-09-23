@@ -15,14 +15,14 @@ actions:
         message: "System status:"
 
       reset-firmware-upgrade-safety:
-        label: Reset Firmware Upgrade Safety State
-        description: Clear a pending or failed firmware-upgrade health check so a new upgrade can be started.
-        confirm: "Reset the firmware-upgrade safety state? Do this only after confirming that no upgrade is still in progress."
+        label: Clear Firmware Upgrade Health Record
+        description: Clear the optional post-boot firmware health record. New upgrades do not require this.
+        confirm: "Clear the optional firmware-upgrade health record? This does not change firmware or the active slot."
         cmd:
           - /bin/sh
           - /usr/local/bin/firmware-upgrade-health.sh
           - reset
-        message: "Resetting firmware-upgrade safety state..."
+        message: "Clearing firmware-upgrade health record..."
 
       collect-logs:
         label: Collect System Logs

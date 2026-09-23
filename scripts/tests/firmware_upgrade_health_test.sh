@@ -64,11 +64,11 @@ make_runtime "$PASS_ROOT"
 printf 'candidate\n' > "$PASS_ROOT/candidate.bin"
 run_helper "$PASS_ROOT" begin "$PASS_ROOT/candidate.bin"
 printf 'another-candidate\n' > "$PASS_ROOT/second.bin"
-if run_helper "$PASS_ROOT" begin "$PASS_ROOT/second.bin" > "$PASS_ROOT/pending.log" 2>&1; then
-    echo "Health gate accepted a second upgrade while the first was pending." >&2
+if ! run_helper "$PASS_ROOT" begin "$PASS_ROOT/second.bin" > "$PASS_ROOT/pending.log" 2>&1; then
+    echo "Health recorder blocked a second upgrade while the first was pending." >&2
     exit 1
 fi
-assert_file_contains "$PASS_ROOT/pending.log" 'still being verified'
+assert_file_contains "$PASS_ROOT/state/state" '^candidate_file=second.bin$'
 printf 'androidboot.slot_suffix=_b\n' > "$PASS_ROOT/cmdline"
 FIRMWARE_UPGRADE_STABLE_CHECKS=3 FIRMWARE_UPGRADE_MAX_CHECKS=3 \
     run_helper "$PASS_ROOT" monitor
@@ -81,11 +81,11 @@ printf 'candidate\n' > "$STATE_WRITE_FAILURE_ROOT/candidate.bin"
 mkdir -p "$STATE_WRITE_FAILURE_ROOT/fail-bin"
 printf '#!/bin/sh\nexit 1\n' > "$STATE_WRITE_FAILURE_ROOT/fail-bin/mv"
 chmod +x "$STATE_WRITE_FAILURE_ROOT/fail-bin/mv"
-if PATH="$STATE_WRITE_FAILURE_ROOT/fail-bin:$PATH" \
+if ! PATH="$STATE_WRITE_FAILURE_ROOT/fail-bin:$PATH" \
     run_helper "$STATE_WRITE_FAILURE_ROOT" begin \
     "$STATE_WRITE_FAILURE_ROOT/candidate.bin" \
     > "$STATE_WRITE_FAILURE_ROOT/begin.log" 2>&1; then
-    echo "Health gate accepted an upgrade after its pending-state write failed." >&2
+    echo "Health recorder blocked an upgrade after its optional state write failed." >&2
     exit 1
 fi
 [[ ! -e "$STATE_WRITE_FAILURE_ROOT/state/state" ]] || {
@@ -104,15 +104,15 @@ printf 'candidate\n' > "$SYNC_FAILURE_ROOT/candidate.bin"
 mkdir -p "$SYNC_FAILURE_ROOT/fail-bin"
 printf '#!/bin/sh\nexit 1\n' > "$SYNC_FAILURE_ROOT/fail-bin/sync"
 chmod +x "$SYNC_FAILURE_ROOT/fail-bin/sync"
-if PATH="$SYNC_FAILURE_ROOT/fail-bin:$PATH" \
+if ! PATH="$SYNC_FAILURE_ROOT/fail-bin:$PATH" \
     run_helper "$SYNC_FAILURE_ROOT" begin \
     "$SYNC_FAILURE_ROOT/candidate.bin" \
     > "$SYNC_FAILURE_ROOT/begin.log" 2>&1; then
-    echo "Health gate accepted an upgrade after flushing its pending record failed." >&2
+    echo "Health recorder blocked an upgrade after flushing its optional state failed." >&2
     exit 1
 fi
 assert_file_contains "$SYNC_FAILURE_ROOT/begin.log" \
-    'Could not flush the pending upgrade record'
+    'Could not flush upgrade health state'
 assert_file_contains "$SYNC_FAILURE_ROOT/state/state" '^state=pending$'
 
 STALE_PENDING_ROOT="$TEST_DIR/stale-pending"
@@ -121,17 +121,12 @@ printf 'candidate\n' > "$STALE_PENDING_ROOT/candidate.bin"
 FIRMWARE_UPGRADE_NOW=1000 \
     run_helper "$STALE_PENDING_ROOT" begin "$STALE_PENDING_ROOT/candidate.bin"
 printf 'androidboot.slot_suffix=_b\n' > "$STALE_PENDING_ROOT/cmdline"
-if FIRMWARE_UPGRADE_NOW=1900 \
+if ! FIRMWARE_UPGRADE_NOW=1900 \
     run_helper "$STALE_PENDING_ROOT" begin "$STALE_PENDING_ROOT/candidate.bin" \
     > "$STALE_PENDING_ROOT/recent.log" 2>&1; then
-    echo "Health gate replaced a pending upgrade without an explicit reset." >&2
+    echo "Health recorder kept a stale state from blocking a new upgrade." >&2
     exit 1
 fi
-assert_file_contains "$STALE_PENDING_ROOT/recent.log" 'reset the safety state'
-run_helper "$STALE_PENDING_ROOT" reset
-assert_file_contains "$STALE_PENDING_ROOT/state/state" '^state=reset$'
-FIRMWARE_UPGRADE_NOW=1900 \
-    run_helper "$STALE_PENDING_ROOT" begin "$STALE_PENDING_ROOT/candidate.bin"
 assert_file_contains "$STALE_PENDING_ROOT/state/state" '^state=pending$'
 assert_file_contains "$STALE_PENDING_ROOT/state/state" '^source_slot=B$'
 
@@ -199,45 +194,40 @@ run_helper "$ROLLBACK_FAILURE_ROOT" begin "$ROLLBACK_FAILURE_ROOT/candidate.bin"
 printf 'androidboot.slot_suffix=_b\n' > "$ROLLBACK_FAILURE_ROOT/cmdline"
 if FIRMWARE_UPGRADE_TEST_RESULT=fail FIRMWARE_UPGRADE_MAX_CHECKS=1 \
     run_helper "$ROLLBACK_FAILURE_ROOT" monitor; then
-    echo "Health gate reported success after the vendor rollback request failed." >&2
+    echo "Health monitor reported success after the vendor rollback request failed." >&2
     exit 1
 fi
 assert_file_contains "$ROLLBACK_FAILURE_ROOT/state/state" '^state=rollback_failed$'
 assert_file_contains "$ROLLBACK_FAILURE_ROOT/state/state" \
     '^failure_reason=vendor_backup_switch_failed$'
+run_helper "$ROLLBACK_FAILURE_ROOT" begin "$ROLLBACK_FAILURE_ROOT/candidate.bin"
+assert_file_contains "$ROLLBACK_FAILURE_ROOT/state/state" '^state=pending$'
 
 UNKNOWN_SLOT_ROOT="$TEST_DIR/unknown-slot"
 make_runtime "$UNKNOWN_SLOT_ROOT"
 printf 'candidate\n' > "$UNKNOWN_SLOT_ROOT/candidate.bin"
 printf 'androidboot.slot_suffix=_c\n' > "$UNKNOWN_SLOT_ROOT/cmdline"
-if run_helper "$UNKNOWN_SLOT_ROOT" begin "$UNKNOWN_SLOT_ROOT/candidate.bin" \
+if ! run_helper "$UNKNOWN_SLOT_ROOT" begin "$UNKNOWN_SLOT_ROOT/candidate.bin" \
     > "$UNKNOWN_SLOT_ROOT/begin.log" 2>&1; then
-    echo "Health gate accepted an upgrade without a recognized active slot." >&2
+    echo "Health recorder blocked an upgrade without a recognized active slot." >&2
     exit 1
 fi
-assert_file_contains "$UNKNOWN_SLOT_ROOT/begin.log" 'Could not determine the active firmware slot'
-[[ ! -f "$UNKNOWN_SLOT_ROOT/state/state" ]] || {
-    echo "Health gate persisted a pending upgrade with an unknown active slot." >&2
-    exit 1
-}
+assert_file_contains "$UNKNOWN_SLOT_ROOT/state/state" '^state=not_monitored$'
+assert_file_contains "$UNKNOWN_SLOT_ROOT/state/state" '^failure_reason=active_slot_unknown$'
 
 CONFLICTING_SLOT_ROOT="$TEST_DIR/conflicting-slot"
 make_runtime "$CONFLICTING_SLOT_ROOT"
 printf 'candidate\n' > "$CONFLICTING_SLOT_ROOT/candidate.bin"
 printf 'androidboot.slot_suffix=_b android_slotsufix=_a\n' > \
     "$CONFLICTING_SLOT_ROOT/cmdline"
-if run_helper "$CONFLICTING_SLOT_ROOT" begin \
+if ! run_helper "$CONFLICTING_SLOT_ROOT" begin \
     "$CONFLICTING_SLOT_ROOT/candidate.bin" > \
     "$CONFLICTING_SLOT_ROOT/begin.log" 2>&1; then
-    echo "Health gate accepted conflicting active-slot markers." >&2
+    echo "Health recorder blocked conflicting active-slot markers." >&2
     exit 1
 fi
-assert_file_contains "$CONFLICTING_SLOT_ROOT/begin.log" \
-    'Could not determine the active firmware slot'
-[[ ! -f "$CONFLICTING_SLOT_ROOT/state/state" ]] || {
-    echo "Health gate persisted a pending upgrade with conflicting slot markers." >&2
-    exit 1
-}
+assert_file_contains "$CONFLICTING_SLOT_ROOT/state/state" '^state=not_monitored$'
+assert_file_contains "$CONFLICTING_SLOT_ROOT/state/state" '^failure_reason=active_slot_unknown$'
 
 NOT_SWITCHED_ROOT="$TEST_DIR/not-switched"
 make_runtime "$NOT_SWITCHED_ROOT"
@@ -248,8 +238,10 @@ run_helper "$NOT_SWITCHED_ROOT" begin "$NOT_SWITCHED_ROOT/candidate.bin"
 FIRMWARE_UPGRADE_TEST_RESULT=fail FIRMWARE_UPGRADE_MAX_CHECKS=1 run_helper "$NOT_SWITCHED_ROOT" monitor
 assert_file_contains "$NOT_SWITCHED_ROOT/state/state" '^state=not_switched$'
 [[ ! -f "$NOT_SWITCHED_ROOT/engine.log" ]] || {
-    echo "Health gate requested rollback even though the active slot did not change." >&2
+    echo "Health monitor requested rollback even though the active slot did not change." >&2
     exit 1
 }
+run_helper "$NOT_SWITCHED_ROOT" begin "$NOT_SWITCHED_ROOT/candidate.bin"
+assert_file_contains "$NOT_SWITCHED_ROOT/state/state" '^state=pending$'
 
 echo "Firmware upgrade health-gate tests passed."

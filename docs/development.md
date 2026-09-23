@@ -67,8 +67,10 @@ approved base package:
 ```
 
 The developer upgrade helper uses this same validation, uploads the complete
-upgrade image, records the pending post-boot health check, and then invokes the
-normal full-image updater. It no longer sends a raw `update.img` directly.
+upgrade image, attempts to record optional post-boot health information, and
+then invokes the normal full-image updater. It no longer sends a raw
+`update.img` directly. Health-recording problems do not block the validated
+image from reaching the vendor updater.
 
 Open a shell in the development environment:
 

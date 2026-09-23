@@ -39,6 +39,21 @@ run_prepare "$TEST_DIR/single.bin"
 grep -Fq "preflight:$TEST_DIR/single.bin" "$CALLS"
 grep -Fq "health:begin:$TEST_DIR/single.bin" "$CALLS"
 
+HEALTH_FAIL="$TEST_DIR/health-fail.sh"
+cat > "$HEALTH_FAIL" <<'EOF'
+#!/bin/sh
+printf 'health-failed:%s:%s\n' "$1" "$2" >> "$FIRMWARE_UPGRADE_TEST_CALLS"
+exit 1
+EOF
+chmod +x "$HEALTH_FAIL"
+if ! HEALTH="$HEALTH_FAIL" run_prepare "$TEST_DIR/single.bin" \
+    > "$TEST_DIR/health-failure.log" 2>&1; then
+    echo "Optional health-state preparation blocked a valid firmware candidate." >&2
+    exit 1
+fi
+grep -Fq "WARNING: Post-boot health monitoring could not be prepared" \
+    "$TEST_DIR/health-failure.log"
+
 printf 'zip firmware payload\n' > "$TEST_DIR/one.bin"
 python3 - "$TEST_DIR/one.zip" "$TEST_DIR/one.bin" <<'PY'
 import sys

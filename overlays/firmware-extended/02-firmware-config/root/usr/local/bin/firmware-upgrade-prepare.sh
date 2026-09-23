@@ -6,7 +6,8 @@
 # Prepare one firmware candidate for the vendor updater. This is the single
 # path used by upload, URL, channel, and developer-triggered upgrades.
 # It may replace a ZIP at the supplied path with its one contained .bin file,
-# then runs the container preflight and records the pending health state.
+# then runs the container preflight and records optional post-boot health
+# state. Health-state recording must never block a structurally valid image.
 
 set -eu
 
@@ -62,8 +63,7 @@ if ! "$PREFLIGHT_BIN" "$firmware"; then
 fi
 
 if ! /bin/sh "$HEALTH_BIN" begin "$firmware"; then
-  echo "ERROR: Could not record the pending upgrade; the upgrade was not started." >&2
-  exit 1
+  echo "WARNING: Post-boot health monitoring could not be prepared; continuing with the firmware upgrade." >&2
 fi
 
 echo "Firmware candidate prepared for upgrade."

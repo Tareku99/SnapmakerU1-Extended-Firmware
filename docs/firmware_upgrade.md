@@ -72,8 +72,10 @@ the firmware base's `upfileUnpack` utility.
 
 Upload, URL, community-channel, and developer-triggered upgrades all use the
 same preparation helper. It extracts a ZIP only when it contains exactly one
-`.bin`, runs the preflight, and records the pending health state before the
-vendor updater is called. There is no arbitrary minimum file-size check:
+`.bin`, runs the preflight, and attempts to record optional post-boot health
+state before the vendor updater is called. If that optional record cannot be
+written, the image is still passed to the vendor updater after a warning. There
+is no arbitrary minimum file-size check:
 structural validation detects truncated or invalid files directly. These
 checks detect malformed or corrupted containers; they are not a cryptographic
 signature or proof of publisher identity. A failed preflight stops the
@@ -86,44 +88,49 @@ The stronger rootfs, partition, protected-`misc`, and provenance checks run in
 the build and CI pipeline. The printer-side preflight is intentionally a small
 transport/container check and does not execute code from the candidate image.
 
-## Post-boot health gate
+## Post-boot health monitoring
 
-The upgrade flow also records a pending upgrade in
+The upgrade flow attempts to record a health record in
 `/userdata/.extended-firmware-upgrade` immediately before calling the vendor
 updater through Firmware Config's URL, Upload, or community-channel action. A
-candidate carrying this project's commit identity is marked `pending`. On the
-next boot, the guard waits for the new A/B slot and checks that the candidate
-commit matches `/etc/BUILD_VERSION`, the upgrade guard and core service scripts
-are readable, and Moonraker can reach Klipper in `ready` state. Firmware Config
-itself is diagnostic and is not a rollback-critical health dependency.
+candidate carrying this project's commit identity and a recognizable active
+slot is marked `pending`. On the next boot, the guard waits for the new A/B
+slot and checks that the candidate commit matches `/etc/BUILD_VERSION`, the
+upgrade guard and core service scripts are readable, and Moonraker can reach
+Klipper in `ready` state. Firmware Config itself is diagnostic and is not a
+rollback-critical health dependency.
 
 Three consecutive healthy checks mark the candidate `verified`. If the new slot
-does not become healthy before the bounded retry window, the guard performs one
-vendor-supported backup-slot request (`updateEngine --misc=other --reboot`). It
-does not erase `/oem` settings, write the `misc` partition directly, or retry a
-rollback indefinitely. The result is shown in Firmware Config under **Firmware
-Upgrade Safety** as `pending`, `verified`, `rollback requested`, `rollback
-failed`, `not switched`, `reset`, or `not monitored`.
+does not become healthy before the bounded retry window, the guard makes one
+best-effort vendor-supported backup-slot request
+(`updateEngine --misc=other --reboot`). It does not erase `/oem` settings,
+write the `misc` partition directly, or retry a rollback indefinitely. The
+result is shown in Firmware Config under **Firmware Upgrade Health** as
+`pending`, `verified`, `rollback requested`, `rollback failed`, `not switched`,
+`reset`, or `not monitored`.
 
-A package without this project's commit identity (for example, stock firmware)
-can still be installed after the container preflight, but is recorded as `not
-monitored`: the post-boot guard cannot claim that such a package contains this
-project's health checks. A pending, rollback-requested, or rollback-failed state
-is never silently replaced by a later upgrade. The user must explicitly reset
-it from Firmware Config or by running:
+A package without this project's commit identity (for example, stock firmware),
+or a package where the active slot cannot be identified, can still be installed
+after the container preflight, but is recorded as `not monitored`. The post-boot
+guard cannot claim that such a package contains this project's health checks or
+can safely be rolled back automatically. These are informational states: a new
+user-requested upgrade replaces the previous health record and does not require
+a reset. The optional record can still be cleared from Firmware Config or by
+running:
 
 ```sh
 /bin/sh /usr/local/bin/firmware-upgrade-health.sh reset
 ```
 
-This preserves the safety record and prevents an unrelated upgrade from
-overwriting an unresolved health check.
+This clears the diagnostic record; it does not flash firmware or switch slots.
+Health-state write, sync, slot-detection, and rollback failures are reported as
+warnings or status values and do not permanently block a later valid upgrade.
 
 This is defense in depth, not a bootloader guarantee: if a candidate fails so
 early that the new root filesystem cannot start the guard, the vendor bootloader
 must provide its own boot-count fallback. The build-time validator remains the
-first line of defense, and the post-boot gate is intentionally limited to the
-existing A/B switch operation. Updates performed directly through USB recovery
+first line of defense, and the post-boot monitor is intentionally limited to
+the existing A/B switch operation. Updates performed directly through USB recovery
 or Rockchip tools do not create this pending record and therefore remain a
 manual recovery path.
 

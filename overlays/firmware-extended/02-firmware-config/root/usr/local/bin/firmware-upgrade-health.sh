@@ -3,12 +3,14 @@
 # SPDX-PackageHomePage: https://github.com/paxx12-snapmaker-u1/SnapmakerU1-Extended-Firmware
 # SPDX-FileCopyrightText: Copyright (c) 2026 @paxx12
 
-# A/B upgrade health gate.
+# A/B upgrade health recorder and monitor.
 #
-# This helper deliberately uses only the existing vendor updateEngine command
-# to select the other boot slot. It never writes, erases, or parses the misc
-# partition itself. The state file lives in /userdata so it is visible to
-# both firmware slots and survives a reboot.
+# This helper is advisory. It deliberately uses only the existing vendor
+# updateEngine command to select the other boot slot, and it never writes,
+# erases, or parses the misc partition itself. A health-state problem must
+# never prevent the vendor updater from handling an otherwise valid image.
+# The state file lives in /userdata so it is visible to both firmware slots
+# and survives a reboot.
 
 set -u
 
@@ -107,7 +109,9 @@ write_state() {
 current_slot() {
     # The U1 bootloader uses the historical `android_slotsufix` spelling
     # (sic), while standard Android builds use `androidboot.slot_suffix`.
-    # Accept either form, but reject missing or conflicting markers.
+    # Accept either form. Missing or conflicting markers are reported as
+    # unknown because they disable monitoring/rollback; they do not make a
+    # firmware image invalid.
     suffixes="$(
         {
             sed -n 's/.*androidboot\.slot_suffix=\(_[ab]\).*/\1/p' \
@@ -213,31 +217,23 @@ begin_upgrade() {
         return 1
     }
 
-    mkdir -p "$STATE_DIR" || return 1
+    if ! mkdir -p "$STATE_DIR"; then
+        log "WARNING: Cannot create upgrade health state directory; continuing without post-boot monitoring"
+        return 0
+    fi
     load_state
     current="$(current_slot)"
-    case "$current" in
-        A|B) ;;
-        *)
-            echo "ERROR: Could not determine the active firmware slot; upgrade was not started." >&2
-            return 1
-            ;;
-    esac
     case "${state:-}" in
         pending|rollback_requested|rollback_failed)
-            if [ "${source_slot:-}" != "$current" ]; then
-                printf 'ERROR: The upgrade from slot %s is still being verified on slot %s; wait for recovery or reset the safety state.\n' \
-                    "${source_slot:-unknown}" "$current" >&2
-            else
-                echo "ERROR: An upgrade is still being verified; wait for recovery or reset the safety state." >&2
-            fi
-            return 1
+            log "Replacing previous unresolved health state=${state} with a new user-requested upgrade"
             ;;
     esac
 
-    if [ "${state:-}" = reset ]; then
-        log "Starting a new user-requested upgrade after an explicit safety-state reset"
-    fi
+    # A new user-requested upgrade supersedes advisory state from an older
+    # attempt. Stop an old monitor and remove only its optional state record so
+    # a failed write cannot leave the previous attempt active on the next boot.
+    stop_monitor
+    rm -f "$STATE_FILE"
 
     state=pending
     source_slot="$current"
@@ -246,9 +242,17 @@ begin_upgrade() {
     candidate_commit="$(sed -n 's/^candidate_commit=//p' "$METADATA_FILE" 2>/dev/null | tail -n 1)"
     candidate_upfile_version="$(sed -n 's/^candidate_upfile_version=//p' "$METADATA_FILE" 2>/dev/null | tail -n 1)"
     failure_reason=
+    if [ "$current" = unknown ]; then
+        state=not_monitored
+        failure_reason=active_slot_unknown
+    fi
     if [ -z "$candidate_commit" ]; then
         state=not_monitored
-        failure_reason=build_commit_missing
+        if [ -n "$failure_reason" ]; then
+            failure_reason="${failure_reason}_and_build_commit_missing"
+        else
+            failure_reason=build_commit_missing
+        fi
     fi
     candidate_sha256=unavailable
     if command -v sha256sum >/dev/null 2>&1; then
@@ -260,13 +264,15 @@ begin_upgrade() {
     health_attempts=0
     verified_at=
     rollback_attempted=0
-    write_state || return 1
+    if ! write_state; then
+        log "WARNING: Could not record upgrade health state; continuing without post-boot monitoring"
+        return 0
+    fi
     if ! sync; then
-        echo "ERROR: Could not flush the pending upgrade record; the upgrade was not started." >&2
-        return 1
+        log "WARNING: Could not flush upgrade health state; continuing without post-boot monitoring"
     fi
     if [ "$state" = not_monitored ]; then
-        log "Upgrade will not be health-monitored: candidate has no project commit identity (source=$source_slot candidate=$candidate_file)"
+        log "Upgrade will not be health-monitored: reason=${failure_reason:-unknown} (source=$source_slot candidate=$candidate_file)"
     else
         log "Upgrade marked pending: source=$source_slot candidate=$candidate_file sha256=$candidate_sha256"
     fi
@@ -291,7 +297,7 @@ mark_not_switched() {
 
 reset_state() {
     if [ ! -f "$STATE_FILE" ]; then
-        echo "Firmware upgrade safety state is already idle."
+        echo "Firmware upgrade health record is already idle."
         return 0
     fi
 
@@ -300,7 +306,7 @@ reset_state() {
         pending|rollback_requested|rollback_failed)
             ;;
         *)
-            echo "Firmware upgrade safety state does not need a reset (state=${state:-unknown})."
+            echo "Firmware upgrade health record does not need clearing (state=${state:-unknown})."
             return 0
             ;;
     esac
@@ -312,7 +318,7 @@ reset_state() {
     health_attempts=0
     rollback_attempted=0
     write_state || return 1
-    log "Firmware upgrade safety state reset explicitly on slot $active_slot"
+    log "Firmware upgrade health record cleared explicitly on slot $active_slot"
 }
 
 rollback_once() {
@@ -418,11 +424,12 @@ status() {
             printf 'not switched: updater did not select a new slot (active=%s)\n' "$current"
             ;;
         not_monitored)
-            printf 'not monitored: candidate=%s, version=%s (no project commit identity)\n' \
-                "${candidate_file:-unknown}" "${candidate_upfile_version:-unknown}"
+            printf 'not monitored: candidate=%s, version=%s, reason=%s\n' \
+                "${candidate_file:-unknown}" "${candidate_upfile_version:-unknown}" \
+                "${failure_reason:-unknown}"
             ;;
         reset)
-            printf 'reset: ready for a new upgrade (previous state was cleared explicitly)\n'
+            printf 'reset: ready for a new upgrade (previous health record was cleared explicitly)\n'
             ;;
         *)
             printf '%s: active=%s\n' "${state:-unknown}" "$current"
