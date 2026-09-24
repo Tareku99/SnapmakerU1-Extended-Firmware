@@ -35,7 +35,7 @@ start() {
         echo "$NAME cannot start: port $PORT is already in use" >&2
         return 1
     fi
-    if ! HOME=/home/lava /usr/bin/python3 -c \
+    if ! PYTHONPATH="$MULTIACE_WEB_VENDOR_DIR" HOME=/home/lava /usr/bin/python3 -c \
         'import fastapi, uvicorn, httpx, pydantic, websockets, multipart, serial' \
         2>/dev/null; then
         echo "$NAME dependencies are missing; reinstall the pinned package" >&2
@@ -48,12 +48,13 @@ start() {
     multiace_export_environment
     echo "Starting $NAME:"
     start-stop-daemon -S -b -m -p "$PIDFILE" -x /bin/sh -- -c \
-        "export HOME=/home/lava MULTIACE_MANAGED=1 \
+        "export HOME=/home/lava PYTHONPATH='$MULTIACE_WEB_VENDOR_DIR' MULTIACE_MANAGED=1 \
         MULTIACE_MANAGED_MARKER='$MULTIACE_MARKER' \
         MULTIACE_APP_DIR='$MULTIACE_APP_ROOT' \
         MULTIACE_WEB_DIR='$MULTIACE_APP_ROOT/web' \
         MULTIACE_CONFIG_DIR='$MULTIACE_CONFIG_DIR' \
         MULTIACE_CFG_PATH='$MULTIACE_CONFIG_FILE' \
+        MULTIACE_WEB_VENDOR_DIR='$MULTIACE_WEB_VENDOR_DIR' \
         MULTIACE_DISABLE_UPDATES=1; \
         cd '$MULTIACE_APP_ROOT/web/backend' || exit 1; \
         exec /usr/bin/python3 -m uvicorn main:app --host 127.0.0.1 \

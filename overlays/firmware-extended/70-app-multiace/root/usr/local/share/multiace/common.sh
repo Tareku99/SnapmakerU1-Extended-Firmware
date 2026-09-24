@@ -13,6 +13,7 @@ MULTIACE_MARKER="$MULTIACE_APP_DIR/.paxx-managed"
 MULTIACE_CONFIG_DIR="/home/lava/printer_data/config/extended/multiace"
 MULTIACE_CONFIG_FILE="/home/lava/printer_data/config/extended/ace.cfg"
 MULTIACE_CONFIG_LINK="/home/lava/printer_data/config/extended/klipper/multiace.cfg"
+MULTIACE_WEB_VENDOR_DIR="$MULTIACE_APP_ROOT/web/backend/vendor"
 
 multiace_enabled() {
     [ "$(/usr/local/bin/extended-config.py get \
@@ -26,7 +27,53 @@ multiace_export_environment() {
     export MULTIACE_WEB_DIR="$MULTIACE_APP_ROOT/web"
     export MULTIACE_CONFIG_DIR
     export MULTIACE_CFG_PATH="$MULTIACE_CONFIG_FILE"
+    export MULTIACE_WEB_VENDOR_DIR
     export MULTIACE_DISABLE_UPDATES=1
+}
+
+multiace_sanitize_provider_config() {
+    if [ ! -f "$MULTIACE_CONFIG_FILE" ]; then
+        return 0
+    fi
+    if [ -L "$MULTIACE_CONFIG_FILE" ]; then
+        echo "multiACE config conflict: $MULTIACE_CONFIG_FILE is a symlink" >&2
+        return 1
+    fi
+
+    # PAXX owns the provider version and update lifecycle. Remove only the
+    # provider's two online-update wrapper macros; leave all user settings and
+    # unrelated macros byte-for-byte unchanged. The ace.py runtime guard still
+    # blocks direct ACE_UPDATE_* commands as a second safety boundary.
+    temporary="${MULTIACE_CONFIG_FILE}.paxx.$$"
+    if ! awk '
+        function is_update_header(line) {
+            return line ~ /^[[:space:]]*\[gcode_macro ACEH__Update_Check\][[:space:]]*$/ ||
+                   line ~ /^[[:space:]]*\[gcode_macro ACEH__Update_Apply\][[:space:]]*$/
+        }
+        {
+            if (is_update_header($0)) {
+                skipping = 1
+                next
+            }
+            if (skipping) {
+                if ($0 ~ /^[[:space:]]*\[/) {
+                    skipping = 0
+                } else {
+                    next
+                }
+            }
+            print
+        }
+    ' "$MULTIACE_CONFIG_FILE" > "$temporary"; then
+        rm -f "$temporary"
+        echo "multiACE could not sanitize its persistent configuration" >&2
+        return 1
+    fi
+    if ! mv -f "$temporary" "$MULTIACE_CONFIG_FILE"; then
+        rm -f "$temporary"
+        echo "multiACE could not update its persistent configuration" >&2
+        return 1
+    fi
 }
 
 multiace_seed_config() {
@@ -50,6 +97,9 @@ multiace_seed_config() {
     fi
     if [ ! -e "$MULTIACE_CONFIG_FILE" ]; then
         cp "$MULTIACE_APP_ROOT/config/extended/ace.cfg" "$MULTIACE_CONFIG_FILE"
+    fi
+    if ! multiace_sanitize_provider_config; then
+        return 1
     fi
 
     if [ ! -e "$MULTIACE_CONFIG_DIR/ace_vars.cfg" ]; then
@@ -78,6 +128,7 @@ multiace_seed_config() {
 
     touch "$MULTIACE_MARKER"
     chown -R lava:lava "$MULTIACE_CONFIG_DIR" 2>/dev/null || true
+    chown lava:lava "$MULTIACE_CONFIG_FILE" 2>/dev/null || true
     chown -h lava:lava "$MULTIACE_CONFIG_LINK" 2>/dev/null || true
 }
 

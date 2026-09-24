@@ -24,9 +24,10 @@ enabling this option. Two copies must not be active at the same time: they can
 both try to provide the same Klipper modules or web port.
 
 The first installation also installs the provider's constrained web
-dependencies into the persistent `lava` user Python environment. This may take
-longer than subsequent starts and requires the printer to be able to download
-the package and dependencies.
+dependencies into the versioned MultiACE package. This may take longer than
+subsequent starts and requires the printer to be able to download the package
+and dependencies. The dependencies therefore survive reboot without requiring
+the firmware's debug-persistence mode.
 
 ## What PAXX manages
 
@@ -47,7 +48,10 @@ behavior:
 - The web UI is served through the authenticated Fluidd or Mainsail origin at
   `/multiace/`; its backend listens only on localhost.
 - Provider self-update and mode-switch actions are disabled so upgrades remain
-  controlled by a reviewed firmware package pin.
+  controlled by a reviewed firmware package pin. PAXX also removes the
+  provider's `ACEH__Update_Check` and `ACEH__Update_Apply` wrapper macros from
+  the persistent ACE config; the underlying `ACE_UPDATE_*` commands remain
+  guarded by the provider's managed-runtime check.
 
 The managed installation leaves a marker at
 `/oem/apps/multiace/.paxx-managed`. It is used by the provider to distinguish

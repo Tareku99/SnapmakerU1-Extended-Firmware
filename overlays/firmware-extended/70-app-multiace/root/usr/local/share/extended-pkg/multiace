@@ -8,9 +8,10 @@
 PKG_LABEL="multiACE"
 PKG_VERSION="1.00.1b"
 PKG_URL="https://github.com/Tareku99/multiACE/releases/download/multiace-v1.00.1b/multiace-paxx-1.00.1b.tar.gz"
-PKG_SHA256="eba7514cff6dfbbecb0990bc083138ee07400fd71af4ca7e706c25c2bac34536"
+PKG_SHA256="da52a004d4f4f3f7cfdd2f6ac5548a621a0377f96a64f17c001aa3bd490ba897"
 PKG_APP_DIR="/oem/apps/multiace"
 PKG_PREFIX="multiace"
+PKG_BINARIES="web/backend/vendor/.paxx-dependencies-ready"
 
 # The archive is a Python/configuration package rather than a single binary.
 # Validate the files that the PAXX activation hook needs before extended-pkg
@@ -35,29 +36,23 @@ pkg_post_install() {
     done
 
     # The web head is optional at build time but required when ACE is enabled.
-    # Install its constrained Python dependencies into lava's persistent user
-    # site rather than modifying the firmware image or the package payload.
-    if HOME=/home/lava /usr/bin/python3 -c 'import fastapi, uvicorn, httpx, pydantic, websockets, multipart, serial' 2>/dev/null; then
-        return 0
-    fi
+    # Keep its dependencies inside the versioned package.  /home/lava is
+    # overlay-backed on stock U1 firmware and is wiped on reboot unless debug
+    # persistence is enabled; the package root is the durable PAXX boundary.
     if [[ ! -x /usr/bin/python3 ]] || ! /usr/bin/python3 -m pip --version >/dev/null 2>&1; then
         echo "multiACE web dependencies are unavailable (python3/pip missing)" >&2
         return 1
     fi
 
+    local vendor="$staging/web/backend/vendor"
     echo "Installing constrained multiACE web dependencies..."
-    mkdir -p /home/lava/.local
-    if command -v runuser >/dev/null 2>&1; then
-        runuser -u lava -- env HOME=/home/lava \
-            /usr/bin/python3 -m pip install --user --no-input \
-            -r "$staging/web/backend/requirements.txt"
-    elif command -v su >/dev/null 2>&1; then
-        su -s /bin/sh lava -c \
-            "HOME=/home/lava /usr/bin/python3 -m pip install --user --no-input -r '$staging/web/backend/requirements.txt'"
-    else
-        HOME=/home/lava /usr/bin/python3 -m pip install --user --no-input \
-            -r "$staging/web/backend/requirements.txt"
-    fi
-    chown -R lava:lava /home/lava/.local 2>/dev/null || true
-    HOME=/home/lava /usr/bin/python3 -c 'import fastapi, uvicorn, httpx, pydantic, websockets, multipart, serial'
+    mkdir -p "$vendor"
+    /usr/bin/python3 -m pip install --no-input --no-compile --no-cache-dir \
+        --target "$vendor" \
+        -r "$staging/web/backend/requirements.txt"
+    PYTHONPATH="$vendor" /usr/bin/python3 -c \
+        'import fastapi, uvicorn, httpx, pydantic, websockets, multipart, serial'
+    printf '%s\n' "multiACE web dependencies installed" \
+        > "$vendor/.paxx-dependencies-ready"
+    chmod 755 "$vendor/.paxx-dependencies-ready"
 }
