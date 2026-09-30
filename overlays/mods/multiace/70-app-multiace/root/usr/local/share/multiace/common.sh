@@ -198,6 +198,7 @@ multiace_unmount_modules() {
     multiace_unmount_file /home/lava/klipper/klippy/extras/ace_bg_swap.py
     multiace_unmount_file /home/lava/klipper/klippy/extras/ace_tipform.py
     multiace_unmount_file /home/lava/klipper/klippy/extras/ace_rc522.py
+    multiace_unmount_file /home/lava/klipper/klippy/extras/ace_gen1_tunnel.py
     multiace_unmount_file /home/lava/klipper/klippy/extras/filament_feed_ace.py
     multiace_unmount_file /home/lava/klipper/klippy/extras/filament_feed.py
     multiace_unmount_file /home/lava/klipper/klippy/extras/filament_switch_sensor_ace.py
@@ -221,6 +222,10 @@ multiace_mount_modules() {
         /home/lava/klipper/klippy/extras/ace_tipform.py || return 1
     multiace_bind_file "$MULTIACE_APP_ROOT/klipper/extras/ace_rc522.py" \
         /home/lava/klipper/klippy/extras/ace_rc522.py || return 1
+    if [ -f "$MULTIACE_APP_ROOT/klipper/extras/ace_gen1_tunnel.py" ]; then
+        multiace_bind_file "$MULTIACE_APP_ROOT/klipper/extras/ace_gen1_tunnel.py" \
+            /home/lava/klipper/klippy/extras/ace_gen1_tunnel.py || return 1
+    fi
     multiace_bind_file "$MULTIACE_APP_ROOT/klipper/extras/filament_feed_ace.py" \
         /home/lava/klipper/klippy/extras/filament_feed_ace.py || return 1
     multiace_bind_file "$MULTIACE_APP_ROOT/klipper/extras/filament_feed_ace.py" \

@@ -79,4 +79,16 @@ multiace_sanitize_provider_config
 multiace_ensure_save_variables
 cmp -s "$CONFIG_FILE" "$TEST_DIR/first.cfg"
 
+# Keep the printer-specific USB permission fix persistent and only match the
+# adapter observed during ACE 2 Pro testing.
+UDEV_RULE="$OVERLAY_DIR/root/etc/udev/rules.d/99-multiace-serial.rules"
+grep -Fqx 'SUBSYSTEM=="tty", ATTRS{idVendor}=="1a86", ATTRS{idProduct}=="7523", GROUP="lava", MODE="0660"' \
+    "$UDEV_RULE"
+
+# Selecting the managed component must update an older installed package to
+# the pin in the firmware rather than treating download as an upgrade.
+SETTINGS_FILE="$OVERLAY_DIR/root/usr/local/share/firmware-config/functions/27_settings_multiace.yaml"
+grep -Fq '/usr/local/bin/extended-pkg multiace needs_upgrade' "$SETTINGS_FILE"
+grep -Fq '/usr/local/bin/extended-pkg multiace upgrade' "$SETTINGS_FILE"
+
 echo "multiACE managed config sanitizer test passed"

@@ -9,10 +9,16 @@ This experimental integration is provided by the rolling-only
 images. The PAXX-managed multiACE provider package is downloaded only when
 selected in Firmware Config; it is not bundled into the firmware image.
 
-This draft now pins a published **test prerelease** of the provider. It is for
-hardware validation on the rolling `extended-multiace` image only; it is not a
-stable multiACE release, and ACE behavior has not yet been fully validated on a
-connected printer.
+multiACE itself is maintained by Decay (@decay71) and its contributors. This
+firmware integration packages that upstream project; it does not claim
+authorship of the provider's ACE implementation.
+
+This draft pins a published **test prerelease** of the provider for hardware
+validation on the rolling `extended-multiace` image only. Initial printer
+testing confirmed that an ACE 2 Pro can reach the ready state after fixing a
+serial-device permission problem; filament operations and reconnect behavior
+are still being tested. The prerelease is temporary, not a stable multiACE
+release.
 
 The PAXX integration follows the same general model used by other optional
 third-party applications in this firmware: the provider release is pinned in
@@ -32,6 +38,20 @@ releases do not.
 Remove any separately installed or manually started multiACE copy before
 enabling this option. Two copies must not be active at the same time: they can
 both try to provide the same Klipper modules or web port.
+
+For the adapter tested with the ACE 2 Pro (USB ID `1a86:7523`), add
+`v2_extra_usb_ids: 1a86:7523` under the existing `[ace]` section in
+`/home/lava/printer_data/config/extended/ace.cfg`. The default intentionally
+does not accept every generic serial adapter as an ACE. PAXX installs a
+persistent udev rule for this exact USB ID so the `lava` account can open the
+serial device after boot and USB reconnection. Verify that behavior after
+flashing this change; the test printer previously needed a one-time manual
+permission correction before the ACE reached ready state.
+
+When enabling multiACE, PAXX checks whether the installed package differs from
+the firmware's reviewed version pin and upgrades it when needed. If multiACE is
+already enabled, the **Upgrade pinned multiACE package** quick action performs
+the same upgrade and reboots afterward.
 
 The first installation also installs the provider's constrained web
 dependencies into the versioned MultiACE package. This may take longer than
@@ -104,11 +124,23 @@ on [multiACE PR #151](https://github.com/decay71/multiACE/pull/151). The exact
 managed archive URL and SHA256 are pinned in the package definition; the
 installer does not follow a moving `latest` release or an unverified branch.
 This prerelease is temporary test input, not the stable update channel.
+It also predates the managed-archive manifest corrections in multiACE #151,
+including the Gen 1 tunnel and web preflight helper. Use it only for the current
+PAXX lifecycle and ACE 2 hardware checks; it is not the final provider payload.
+After #151 is merged, Decay plans to publish a regular release. Before #738 is
+merged, update the firmware's version, archive URL, and SHA256 together to that
+release and make the Gen 1 tunnel a required package file.
 
 This is a draft integration for hardware testing. It has been checked for
 package structure, checksum verification, shell syntax, and provider-side
 managed-boundary tests; ACE loading, unloading, tool changes, recovery, and
 long-print behavior still require testing on a connected printer.
+
+Report ACE protocol, device detection, and multiACE UI behavior in the
+multiACE issue tracker at https://github.com/decay71/multiACE/issues. Report
+firmware packaging, component selection, device permissions, and activation
+problems in the PAXX firmware issue tracker at
+https://github.com/paxx12-snapmaker-u1/SnapmakerU1-Extended-Firmware/issues.
 
 The PR adds `overlays/mods/multiace/` and a separate `extended-multiace`
 rolling image; it does not add multiACE to the stable release workflow or

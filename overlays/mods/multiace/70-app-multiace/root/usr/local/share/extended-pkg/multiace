@@ -16,6 +16,9 @@ PKG_BINARIES="web/backend/vendor/.paxx-dependencies-ready"
 # The archive is a Python/configuration package rather than a single binary.
 # Validate the files that the PAXX activation hook needs before extended-pkg
 # moves the staging directory into the active application tree.
+# The temporary test archive predates the Gen 1 tunnel and web preflight
+# helper; the stable upstream pin must include both before these checks become
+# mandatory.
 pkg_post_install() {
     local staging="$1"
     local required
