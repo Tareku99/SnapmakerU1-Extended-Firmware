@@ -4,9 +4,15 @@ title: Anycubic ACE via multiACE
 
 # Anycubic ACE via multiACE
 
-This firmware can install an experimental, PAXX-managed multiACE package for
-Anycubic ACE and ACE 2 Pro hardware. The provider is downloaded only when
+This experimental integration is provided by the rolling-only
+`extended-multiace` firmware profile. It is not included in stable firmware
+images. The PAXX-managed multiACE provider package is downloaded only when
 selected in Firmware Config; it is not bundled into the firmware image.
+
+**This draft is not currently ready to enable on a printer.** Its legacy test
+package URL currently returns 404. Wait until Decay merges the provider
+contract and publishes the managed archive and checksum, then until PAXX pins
+that release in this integration.
 
 The PAXX integration follows the same general model used by other optional
 third-party applications in this firmware: the provider release is pinned in
@@ -14,10 +20,14 @@ the firmware source, downloaded on demand, and verified with a SHA256 checksum.
 
 ## Enable it
 
-1. Open **Firmware Config**.
-2. Open **Snapmaker Components**.
+1. Install the `extended-multiace` image from the project's rolling release.
+2. Open **Firmware Config** and then **Snapmaker Components**.
 3. Set **Anycubic ACE** to **multiACE (pinned package)**.
 4. Confirm the action and allow the printer to reboot.
+
+For firmware updates, select the `develop` upgrade channel. The rolling
+release includes a matching `extended-multiace` image; stable and testing
+releases do not.
 
 Remove any separately installed or manually started multiACE copy before
 enabling this option. Two copies must not be active at the same time: they can
@@ -48,14 +58,29 @@ behavior:
 - The web UI is served through the authenticated Fluidd or Mainsail origin at
   `/multiace/`; its backend listens only on localhost.
 - Provider self-update and mode-switch actions are disabled so upgrades remain
-  controlled by a reviewed firmware package pin. PAXX also removes the
-  provider's `ACEH__Update_Check` and `ACEH__Update_Apply` wrapper macros from
-  the persistent ACE config; the underlying `ACE_UPDATE_*` commands remain
-  guarded by the provider's managed-runtime check.
+  controlled by a reviewed firmware package pin. With the current test archive,
+  PAXX removes the `ACEH__Update_Check` and `ACEH__Update_Apply` wrapper macros
+  and sets its legacy update-disable flag. The Decay managed archive will own
+  those guards; PAXX should drop this compatibility handling when it switches
+  to that archive.
 
-The managed installation leaves a marker at
-`/oem/apps/multiace/.paxx-managed`. It is used by the provider to distinguish
-this installation from a standalone deployment.
+The integration uses the platform-neutral `.multiace-managed` marker in its
+persistent state directory. Decay's managed-package PR defines this provider
+contract:
+
+- `MULTIACE_MANAGED=1`
+- `MULTIACE_MANAGED_MARKER`
+- `MULTIACE_APP_DIR`
+- `MULTIACE_CONFIG_DIR`
+- `MULTIACE_PRINTER_DATA`
+
+The marker and paths let multiACE distinguish a platform-managed install from
+its standalone installation without coupling provider code to PAXX-specific
+paths or names. While this branch still pins the older Tareku test archive,
+PAXX keeps a temporary compatibility adapter for that archive's legacy path
+variables. The adapter must be switched to this five-variable contract in the
+same reviewed change that pins Decay's released managed archive and checksum;
+the unmerged PR is not used as a firmware package source.
 
 ## Disable or remove it
 
@@ -72,15 +97,18 @@ is treated as an error rather than silently replacing another installation.
 
 ## Current pin and scope
 
-This branch currently pins the PAXX-managed provider release
-`multiace-v1.00.1b` from the [Tareku99/multiACE fork](https://github.com/Tareku99/multiACE/releases/tag/multiace-v1.00.1b).
-The archive and checksum are intentionally changed only through a reviewed
-firmware commit.
+This test branch still contains the old `multiace-v1.00.1b` test-archive pin,
+whose Tareku fork URL currently returns 404. The long-term provider change is under review in
+[decay71/multiACE PR #151](https://github.com/decay71/multiACE/pull/151).
+PAXX must not substitute a branch archive or invent a checksum. The package
+URL, checksum, and runtime environment contract must be updated together after
+that PR is merged and Decay publishes the managed release archive and SHA256.
 
 This is a draft integration for hardware testing. It has been checked for
 package structure, checksum verification, shell syntax, and provider-side
 managed-boundary tests; ACE loading, unloading, tool changes, recovery, and
 long-print behavior still require testing on a connected printer.
 
-For the package boundary and provider-side implementation, see the
-[multiACE managed-package PR](https://github.com/Tareku99/multiACE/pull/1).
+The PR adds `overlays/mods/multiace/` and a separate `extended-multiace`
+rolling image; it does not add multiACE to the stable release workflow or
+combine it with the AFC profile.

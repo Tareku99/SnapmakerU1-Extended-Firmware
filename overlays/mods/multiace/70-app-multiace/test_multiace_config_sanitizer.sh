@@ -49,8 +49,14 @@ grep -q '^ace_device_count: 2$' "$CONFIG_FILE"
 grep -q '^\[gcode_macro ACEG__Status\]$' "$CONFIG_FILE"
 grep -q '^\[gcode_macro INNER_RESUME\]$' "$CONFIG_FILE"
 
+# The managed provider archive omits its standalone save_variables section;
+# PAXX supplies the persistent location without overwriting an existing one.
+multiace_ensure_save_variables
+grep -Fqx "filename: $MULTIACE_STATE_DIR/ace_vars.cfg" "$CONFIG_FILE"
+
 cp "$CONFIG_FILE" "$TEST_DIR/first.cfg"
 multiace_sanitize_provider_config
+multiace_ensure_save_variables
 cmp -s "$CONFIG_FILE" "$TEST_DIR/first.cfg"
 
 echo "multiACE managed config sanitizer test passed"

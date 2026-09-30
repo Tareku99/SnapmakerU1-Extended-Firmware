@@ -1,18 +1,23 @@
 #!/bin/sh
 # SPDX-License-Identifier: GPL-3.0-or-later
-# SPDX-PackageHomePage: https://github.com/Tareku99/multiACE
+# SPDX-PackageHomePage: https://github.com/decay71/multiACE
 # SPDX-FileCopyrightText: Copyright (c) 2026 @decay71 and contributors
 
 # Shared PAXX activation helpers. This file is sourced by the Klipper hook,
 # the web init script, and the Firmware Config control command.
 
-MULTIACE_EXTENDED_CFG="/home/lava/printer_data/config/extended/extended2.cfg"
-MULTIACE_APP_DIR="/oem/apps/multiace"
-MULTIACE_APP_ROOT="$MULTIACE_APP_DIR/latest"
-MULTIACE_MARKER="$MULTIACE_APP_DIR/.paxx-managed"
-MULTIACE_CONFIG_DIR="/home/lava/printer_data/config/extended/multiace"
-MULTIACE_CONFIG_FILE="/home/lava/printer_data/config/extended/ace.cfg"
-MULTIACE_CONFIG_LINK="/home/lava/printer_data/config/extended/klipper/multiace.cfg"
+MULTIACE_PRINTER_DATA="${MULTIACE_PRINTER_DATA:-/home/lava/printer_data}"
+MULTIACE_CONFIG_ROOT="${MULTIACE_CONFIG_DIR:-$MULTIACE_PRINTER_DATA/config}"
+MULTIACE_EXTENDED_DIR="$MULTIACE_CONFIG_ROOT/extended"
+MULTIACE_EXTENDED_CFG="$MULTIACE_EXTENDED_DIR/extended2.cfg"
+MULTIACE_INSTALL_DIR="/oem/apps/multiace"
+MULTIACE_APP_DIR="${MULTIACE_APP_DIR:-$MULTIACE_INSTALL_DIR/latest}"
+MULTIACE_APP_ROOT="$MULTIACE_APP_DIR"
+MULTIACE_STATE_DIR="$MULTIACE_EXTENDED_DIR/multiace"
+MULTIACE_CONFIG_DIR="$MULTIACE_STATE_DIR"
+MULTIACE_MANAGED_MARKER="${MULTIACE_MANAGED_MARKER:-$MULTIACE_STATE_DIR/.multiace-managed}"
+MULTIACE_CONFIG_FILE="$MULTIACE_EXTENDED_DIR/ace.cfg"
+MULTIACE_CONFIG_LINK="$MULTIACE_EXTENDED_DIR/klipper/multiace.cfg"
 MULTIACE_WEB_VENDOR_DIR="$MULTIACE_APP_ROOT/web/backend/vendor"
 
 multiace_enabled() {
@@ -22,13 +27,17 @@ multiace_enabled() {
 
 multiace_export_environment() {
     export MULTIACE_MANAGED=1
-    export MULTIACE_MANAGED_MARKER="$MULTIACE_MARKER"
-    export MULTIACE_APP_DIR="$MULTIACE_APP_ROOT"
-    export MULTIACE_WEB_DIR="$MULTIACE_APP_ROOT/web"
+    export MULTIACE_MANAGED_MARKER
+    export MULTIACE_APP_DIR
+    # Compatibility adapter for the currently pinned Tareku test archive.
+    # Switch these to the five-variable decay71 contract at the same time as
+    # PKG_URL/PKG_SHA256 move to its published managed archive.
     export MULTIACE_CONFIG_DIR
     export MULTIACE_CFG_PATH="$MULTIACE_CONFIG_FILE"
+    export MULTIACE_WEB_DIR="$MULTIACE_APP_ROOT/web"
     export MULTIACE_WEB_VENDOR_DIR
     export MULTIACE_DISABLE_UPDATES=1
+    export MULTIACE_PRINTER_DATA
 }
 
 multiace_sanitize_provider_config() {
@@ -76,6 +85,32 @@ multiace_sanitize_provider_config() {
     fi
 }
 
+multiace_ensure_save_variables() {
+    if grep -Eq '^[[:space:]]*\[save_variables\][[:space:]]*$' \
+        "$MULTIACE_CONFIG_FILE"; then
+        return 0
+    fi
+
+    # The managed provider archive omits host-specific save-variable values.
+    # PAXX supplies its persistent path when seeding the user config.
+    temporary="${MULTIACE_CONFIG_FILE}.paxx.$$"
+    if ! {
+        printf '[save_variables]\nfilename: %s\n\n' \
+            "$MULTIACE_STATE_DIR/ace_vars.cfg"
+        cat "$MULTIACE_CONFIG_FILE"
+    } > "$temporary"; then
+        rm -f "$temporary"
+        echo "multiACE could not add its save_variables path" >&2
+        return 1
+    fi
+    chmod 644 "$temporary" 2>/dev/null || true
+    if ! mv -f "$temporary" "$MULTIACE_CONFIG_FILE"; then
+        rm -f "$temporary"
+        echo "multiACE could not update its persistent configuration" >&2
+        return 1
+    fi
+}
+
 multiace_seed_config() {
     if [ ! -d "$MULTIACE_APP_ROOT" ]; then
         echo "multiACE package is not installed at $MULTIACE_APP_ROOT" >&2
@@ -86,7 +121,7 @@ multiace_seed_config() {
         return 1
     fi
 
-    mkdir -p "$MULTIACE_CONFIG_DIR" \
+    mkdir -p "$MULTIACE_STATE_DIR" \
         "$(dirname "$MULTIACE_CONFIG_FILE")" \
         "$(dirname "$MULTIACE_CONFIG_LINK")"
 
@@ -98,18 +133,21 @@ multiace_seed_config() {
     if [ ! -e "$MULTIACE_CONFIG_FILE" ]; then
         cp "$MULTIACE_APP_ROOT/config/extended/ace.cfg" "$MULTIACE_CONFIG_FILE"
     fi
+    if ! multiace_ensure_save_variables; then
+        return 1
+    fi
     if ! multiace_sanitize_provider_config; then
         return 1
     fi
 
-    if [ ! -e "$MULTIACE_CONFIG_DIR/ace_vars.cfg" ]; then
+    if [ ! -e "$MULTIACE_STATE_DIR/ace_vars.cfg" ]; then
         cp "$MULTIACE_APP_ROOT/config/extended/multiace/ace_vars.cfg" \
-            "$MULTIACE_CONFIG_DIR/ace_vars.cfg"
+            "$MULTIACE_STATE_DIR/ace_vars.cfg"
     fi
-    if [ ! -d "$MULTIACE_CONFIG_DIR/i18n" ] && [ -d "$MULTIACE_APP_ROOT/i18n" ]; then
-        cp -a "$MULTIACE_APP_ROOT/i18n" "$MULTIACE_CONFIG_DIR/i18n"
+    if [ ! -d "$MULTIACE_STATE_DIR/i18n" ] && [ -d "$MULTIACE_APP_ROOT/i18n" ]; then
+        cp -a "$MULTIACE_APP_ROOT/i18n" "$MULTIACE_STATE_DIR/i18n"
     fi
-    mkdir -p "$MULTIACE_CONFIG_DIR/filament_snapshots"
+    mkdir -p "$MULTIACE_STATE_DIR/filament_snapshots"
 
     # The stock Klipper include glob loads this symlink. Refuse to overwrite a
     # user-created file or an unrelated integration at the same path.
@@ -126,8 +164,8 @@ multiace_seed_config() {
         ln -s "$MULTIACE_CONFIG_FILE" "$MULTIACE_CONFIG_LINK"
     fi
 
-    touch "$MULTIACE_MARKER"
-    chown -R lava:lava "$MULTIACE_CONFIG_DIR" 2>/dev/null || true
+    touch "$MULTIACE_MANAGED_MARKER"
+    chown -R lava:lava "$MULTIACE_STATE_DIR" 2>/dev/null || true
     chown lava:lava "$MULTIACE_CONFIG_FILE" 2>/dev/null || true
     chown -h lava:lava "$MULTIACE_CONFIG_LINK" 2>/dev/null || true
 }
@@ -225,4 +263,7 @@ multiace_activate() {
 multiace_deactivate() {
     multiace_unmount_modules
     rm -f "$MULTIACE_CONFIG_LINK"
+    if ! multiace_enabled; then
+        rm -f "$MULTIACE_MANAGED_MARKER"
+    fi
 }
