@@ -6,9 +6,9 @@
 # This definition intentionally pins the provider release. Updating multiACE
 # requires a reviewed firmware change with a new version and checksum.
 PKG_LABEL="multiACE"
-PKG_VERSION="1.00.1b"
-PKG_URL="https://github.com/Tareku99/multiACE/releases/download/multiace-v1.00.1b/multiace-paxx-1.00.1b.tar.gz"
-PKG_SHA256="da52a004d4f4f3f7cfdd2f6ac5548a621a0377f96a64f17c001aa3bd490ba897"
+PKG_VERSION="1.11b"
+PKG_URL="https://github.com/decay71/multiACE/releases/download/v1.11b-test.090d54d/multiace-managed-1.11b.tar.gz"
+PKG_SHA256="7340e16d7bef3065afae07c6e301356edd129dbd488060e0ee33db453bd48b21"
 PKG_APP_DIR="/oem/apps/multiace"
 PKG_PREFIX="multiace"
 PKG_BINARIES="web/backend/vendor/.paxx-dependencies-ready"

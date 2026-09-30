@@ -9,10 +9,10 @@ This experimental integration is provided by the rolling-only
 images. The PAXX-managed multiACE provider package is downloaded only when
 selected in Firmware Config; it is not bundled into the firmware image.
 
-**This draft is not currently ready to enable on a printer.** Its legacy test
-package URL currently returns 404. Wait until Decay merges the provider
-contract and publishes the managed archive and checksum, then until PAXX pins
-that release in this integration.
+This draft now pins a published **test prerelease** of the provider. It is for
+hardware validation on the rolling `extended-multiace` image only; it is not a
+stable multiACE release, and ACE behavior has not yet been fully validated on a
+connected printer.
 
 The PAXX integration follows the same general model used by other optional
 third-party applications in this firmware: the provider release is pinned in
@@ -57,12 +57,14 @@ behavior:
   include directory only while the managed integration is enabled.
 - The web UI is served through the authenticated Fluidd or Mainsail origin at
   `/multiace/`; its backend listens only on localhost.
-- Provider self-update and mode-switch actions are disabled so upgrades remain
-  controlled by a reviewed firmware package pin. With the current test archive,
-  PAXX removes the `ACEH__Update_Check` and `ACEH__Update_Apply` wrapper macros
-  and sets its legacy update-disable flag. The Decay managed archive will own
-  those guards; PAXX should drop this compatibility handling when it switches
-  to that archive.
+- The managed provider package disables standalone install, uninstall,
+  self-update, and file-copy mode switching. multiACE-to-head runtime mode
+  changes remain available. PAXX owns package upgrades through the reviewed
+  version and checksum pin.
+- PAXX retains an idempotent cleanup for stale update-wrapper macros in
+  persistent configs created by the older test archive; it does not pass the
+  legacy update-disable environment flag. The managed provider package ships
+  without those wrappers and enforces managed mode itself.
 
 The integration uses the platform-neutral `.multiace-managed` marker in its
 persistent state directory. Decay's managed-package PR defines this provider
@@ -71,16 +73,14 @@ contract:
 - `MULTIACE_MANAGED=1`
 - `MULTIACE_MANAGED_MARKER`
 - `MULTIACE_APP_DIR`
-- `MULTIACE_CONFIG_DIR`
+- `MULTIACE_CONFIG_DIR` (the directory containing `printer.cfg`,
+  `/home/lava/printer_data/config` on the U1)
 - `MULTIACE_PRINTER_DATA`
 
 The marker and paths let multiACE distinguish a platform-managed install from
 its standalone installation without coupling provider code to PAXX-specific
-paths or names. While this branch still pins the older Tareku test archive,
-PAXX keeps a temporary compatibility adapter for that archive's legacy path
-variables. The adapter must be switched to this five-variable contract in the
-same reviewed change that pins Decay's released managed archive and checksum;
-the unmerged PR is not used as a firmware package source.
+paths or names. PAXX passes the five-variable contract to the managed web
+service and preserves the provider's default U1 paths for Klipper.
 
 ## Disable or remove it
 
@@ -97,12 +97,13 @@ is treated as an error rather than silently replacing another installation.
 
 ## Current pin and scope
 
-This test branch still contains the old `multiace-v1.00.1b` test-archive pin,
-whose Tareku fork URL currently returns 404. The long-term provider change is under review in
-[decay71/multiACE PR #151](https://github.com/decay71/multiACE/pull/151).
-PAXX must not substitute a branch archive or invent a checksum. The package
-URL, checksum, and runtime environment contract must be updated together after
-that PR is merged and Decay publishes the managed release archive and SHA256.
+For this hardware-test build, PAXX pins multiACE version `1.11b` from the
+[`v1.11b-test.090d54d` prerelease](https://github.com/decay71/multiACE/releases/tag/v1.11b-test.090d54d),
+built from commit [`090d54d`](https://github.com/decay71/multiACE/commit/090d54da9a7aa52f72ed9e2049306f330827e2d0)
+on [multiACE PR #151](https://github.com/decay71/multiACE/pull/151). The exact
+managed archive URL and SHA256 are pinned in the package definition; the
+installer does not follow a moving `latest` release or an unverified branch.
+This prerelease is temporary test input, not the stable update channel.
 
 This is a draft integration for hardware testing. It has been checked for
 package structure, checksum verification, shell syntax, and provider-side

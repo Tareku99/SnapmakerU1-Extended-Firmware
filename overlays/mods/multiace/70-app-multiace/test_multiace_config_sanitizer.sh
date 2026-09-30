@@ -37,7 +37,27 @@ EOF
 
 # common.sh only defines helpers when sourced. Override the firmware path with
 # the temporary fixture before invoking the PAXX sanitizer.
+MULTIACE_PRINTER_DATA="$TEST_DIR/printer_data"
+MULTIACE_CONFIG_DIR="$MULTIACE_PRINTER_DATA/config"
+MULTIACE_APP_DIR="$TEST_DIR/apps/multiace/latest"
+MULTIACE_MANAGED_MARKER="$MULTIACE_CONFIG_DIR/extended/multiace/.multiace-managed"
 . "$OVERLAY_DIR/root/usr/local/share/multiace/common.sh"
+
+if [ "$MULTIACE_CONFIG_DIR" != "$TEST_DIR/printer_data/config" ]; then
+    echo "MULTIACE_CONFIG_DIR must remain the printer config directory" >&2
+    exit 1
+fi
+if [ "$MULTIACE_STATE_DIR" != "$MULTIACE_CONFIG_DIR/extended/multiace" ]; then
+    echo "multiACE state directory does not follow the shared config contract" >&2
+    exit 1
+fi
+multiace_export_environment
+[ "$MULTIACE_MANAGED" = "1" ]
+[ "$MULTIACE_MANAGED_MARKER" = "$TEST_DIR/printer_data/config/extended/multiace/.multiace-managed" ]
+[ "$MULTIACE_APP_DIR" = "$TEST_DIR/apps/multiace/latest" ]
+[ "$MULTIACE_CONFIG_DIR" = "$TEST_DIR/printer_data/config" ]
+[ "$MULTIACE_PRINTER_DATA" = "$TEST_DIR/printer_data" ]
+
 MULTIACE_CONFIG_FILE="$CONFIG_FILE"
 multiace_sanitize_provider_config
 

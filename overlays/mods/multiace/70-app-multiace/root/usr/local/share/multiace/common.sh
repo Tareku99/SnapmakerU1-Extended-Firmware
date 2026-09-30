@@ -7,14 +7,13 @@
 # the web init script, and the Firmware Config control command.
 
 MULTIACE_PRINTER_DATA="${MULTIACE_PRINTER_DATA:-/home/lava/printer_data}"
-MULTIACE_CONFIG_ROOT="${MULTIACE_CONFIG_DIR:-$MULTIACE_PRINTER_DATA/config}"
-MULTIACE_EXTENDED_DIR="$MULTIACE_CONFIG_ROOT/extended"
+MULTIACE_CONFIG_DIR="${MULTIACE_CONFIG_DIR:-$MULTIACE_PRINTER_DATA/config}"
+MULTIACE_EXTENDED_DIR="$MULTIACE_CONFIG_DIR/extended"
 MULTIACE_EXTENDED_CFG="$MULTIACE_EXTENDED_DIR/extended2.cfg"
 MULTIACE_INSTALL_DIR="/oem/apps/multiace"
 MULTIACE_APP_DIR="${MULTIACE_APP_DIR:-$MULTIACE_INSTALL_DIR/latest}"
 MULTIACE_APP_ROOT="$MULTIACE_APP_DIR"
 MULTIACE_STATE_DIR="$MULTIACE_EXTENDED_DIR/multiace"
-MULTIACE_CONFIG_DIR="$MULTIACE_STATE_DIR"
 MULTIACE_MANAGED_MARKER="${MULTIACE_MANAGED_MARKER:-$MULTIACE_STATE_DIR/.multiace-managed}"
 MULTIACE_CONFIG_FILE="$MULTIACE_EXTENDED_DIR/ace.cfg"
 MULTIACE_CONFIG_LINK="$MULTIACE_EXTENDED_DIR/klipper/multiace.cfg"
@@ -29,14 +28,7 @@ multiace_export_environment() {
     export MULTIACE_MANAGED=1
     export MULTIACE_MANAGED_MARKER
     export MULTIACE_APP_DIR
-    # Compatibility adapter for the currently pinned Tareku test archive.
-    # Switch these to the five-variable decay71 contract at the same time as
-    # PKG_URL/PKG_SHA256 move to its published managed archive.
     export MULTIACE_CONFIG_DIR
-    export MULTIACE_CFG_PATH="$MULTIACE_CONFIG_FILE"
-    export MULTIACE_WEB_DIR="$MULTIACE_APP_ROOT/web"
-    export MULTIACE_WEB_VENDOR_DIR
-    export MULTIACE_DISABLE_UPDATES=1
     export MULTIACE_PRINTER_DATA
 }
 
