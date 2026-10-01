@@ -91,4 +91,11 @@ SETTINGS_FILE="$OVERLAY_DIR/root/usr/local/share/firmware-config/functions/27_se
 grep -Fq '/usr/local/bin/extended-pkg multiace needs_upgrade' "$SETTINGS_FILE"
 grep -Fq '/usr/local/bin/extended-pkg multiace upgrade' "$SETTINGS_FILE"
 
+# Show the multiACE page in Firmware Config's Quick Links only while the
+# PAXX-managed multiACE component is selected.
+LINKS_FILE="$OVERLAY_DIR/root/usr/local/share/firmware-config/functions/11_links_multiace.yaml"
+grep -Fq 'url: /multiace/' "$LINKS_FILE"
+grep -Fq 'setting: ace' "$LINKS_FILE"
+grep -Fq 'value: multiace' "$LINKS_FILE"
+
 echo "multiACE managed config sanitizer test passed"
