@@ -6,8 +6,8 @@ settings:
   snapmaker_components:
     items:
       ace:
-        label: Anycubic ACE (Experimental)
-        description: Use the pinned PAXX-managed multiACE package for ACE Pro and ACE 2 Pro hardware.
+        label: multiACE Integration
+        description: Experimental support for Anycubic ACE Pro and ACE 2 Pro using multiACE.
         help_url: https://snapmakeru1-extended-firmware.pages.dev/multiace
         get_cmd:
           - /usr/local/bin/extended-config.py
@@ -30,8 +30,8 @@ settings:
                 echo ">> Managed ACE disabled. Rebooting to restore stock paths..."
                 (sleep 3; /sbin/reboot) >/dev/null 2>&1 &
           multiace:
-            label: multiACE (pinned package)
-            confirm: "Enable the pinned multiACE package? This is experimental and requires a connected ACE. PAXX will download and checksum the provider package, keep stock Klipper files untouched, and reboot before activation. Remove any standalone multiACE installation first so the two runtimes are not mixed."
+            label: Enabled
+            confirm: "Enable experimental multiACE support? This requires ACE Pro or ACE 2 Pro hardware. PAXX will download and verify the provider version pinned to this firmware build, preserve stock Klipper files, and reboot to activate. Remove any standalone multiACE installation first to avoid conflicts."
             cmd:
               - bash
               - -xec

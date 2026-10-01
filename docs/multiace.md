@@ -30,7 +30,7 @@ the firmware source, downloaded on demand, and verified with a SHA256 checksum.
 
 1. Install the `extended-multiace` image from the project's rolling release.
 2. Open **Firmware Config** and then **Snapmaker Components**.
-3. Set **Anycubic ACE** to **multiACE (pinned package)**.
+3. Set **multiACE Integration** to **Enabled**.
 4. Confirm the action and allow the printer to reboot.
 
 For firmware updates, select the `develop` upgrade channel. The rolling
@@ -106,8 +106,8 @@ service and preserves the provider's default U1 paths for Klipper.
 
 ## Disable or remove it
 
-In Firmware Config, set **Anycubic ACE** to **Disabled** and confirm the
-reboot. The PAXX service stops the web UI, removes the provider mounts, and
+In Firmware Config, set **multiACE Integration** to **Disabled** and confirm
+the reboot. The PAXX service stops the web UI, removes the provider mounts, and
 removes the downloaded package. Persistent ACE configuration is intentionally
 left in place so it can be inspected or reused if the integration is enabled
 again.
