@@ -9,9 +9,11 @@ This experimental integration is provided by the rolling-only
 images. The PAXX-managed multiACE provider package is downloaded only when
 selected in Firmware Config; it is not bundled into the firmware image.
 
-multiACE itself is maintained by Decay (@decay71) and its contributors. This
-firmware integration packages that upstream project; it does not claim
-authorship of the provider's ACE implementation.
+This integration packages [multiACE](https://github.com/decay71/multiACE), the
+upstream Anycubic ACE implementation created by [Decay (@decay71)](https://github.com/decay71)
+and developed with its contributors. PAXX provides the U1-specific packaging
+and firmware integration; the upstream ACE implementation is the work of the
+multiACE authors.
 
 This draft pins a published **test prerelease** of the provider for hardware
 validation on the rolling `extended-multiace` image only. Initial printer
