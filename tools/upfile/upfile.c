@@ -3,6 +3,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2025 @paxx12, @james-coder
 
 #include <stdio.h>
+#include <errno.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
@@ -87,6 +88,7 @@ static int info(const char *infile, const char *outdir, void (*file_fnc)(const c
   printf("  Files:\t%u\n", be_to_host16(header.files));
 
   if (file_fnc) {
+    file_fnc("UPFILE_MAGIC_VER", &header.magic_ver, sizeof(header.magic_ver));
     file_fnc("UPFILE_VERSION", header.version, trim_right(header.version, sizeof(header.version)));
     file_fnc("UPFILE_BUILD_DATE", header.build_date, trim_right(header.build_date, sizeof(header.build_date)));
   }
@@ -252,6 +254,29 @@ static int read_string_from_file(const char *filename, char *buffer, size_t buff
   return 0;
 }
 
+static int read_magic_ver(uint16_t *magic_ver) {
+  FILE *fp = fopen("UPFILE_MAGIC_VER", "rb");
+  if (!fp) {
+    if (errno == ENOENT) {
+      // Preserve compatibility with hand-built unpack directories.
+      *magic_ver = host_to_be16(1);
+      return 0;
+    }
+    perror("fopen UPFILE_MAGIC_VER");
+    return -1;
+  }
+
+  size_t bytes = fread(magic_ver, 1, sizeof(*magic_ver), fp);
+  int trailing = fgetc(fp);
+  bool invalid = bytes != sizeof(*magic_ver) || trailing != EOF || ferror(fp);
+  fclose(fp);
+  if (invalid) {
+    fprintf(stderr, "Error: UPFILE_MAGIC_VER must contain exactly 2 bytes\n");
+    return -1;
+  }
+  return 0;
+}
+
 static int pack(const char *outfile, const char *indir) {
   FILE *outfp = fopen(outfile, "wb");
   if (!outfp) {
@@ -270,7 +295,9 @@ static int pack(const char *outfile, const char *indir) {
   // Create upfile header
   UPFILE_HEADER header = {0};
   header.magic = UPFILE_MAGIC;
-  header.magic_ver = host_to_be16(1);
+  if (read_magic_ver(&header.magic_ver) != 0) {
+    goto error;
+  }
   header.files = host_to_be16(UPFILE_FILE_COUNT);
   if (read_string_from_file("UPFILE_VERSION", header.version, sizeof(header.version)) != 0) {
     fprintf(stderr, "Error: UPFILE_VERSION not found\n");

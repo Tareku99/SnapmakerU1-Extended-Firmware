@@ -75,12 +75,15 @@ firmware/$(FIRMWARE_FILE): FORCE
 
 # ================= Test =================
 
-test: test-downloads firmware/$(FIRMWARE_FILE) tools
+test: test-downloads test-build-guards firmware/$(FIRMWARE_FILE) tools
 	make -C tools test FIRMWARE_FILE=$(CURDIR)/firmware/$(FIRMWARE_FILE)
 
-.PHONY: test-downloads
+.PHONY: test-downloads test-build-guards
 test-downloads:
 	PYTHONDONTWRITEBYTECODE=1 python3 scripts/tests/cache_file_test.py
+
+test-build-guards:
+	PYTHONDONTWRITEBYTECODE=1 python3 scripts/tests/build_guard_test.py
 
 # ================= Helpers =================
 
