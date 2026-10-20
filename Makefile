@@ -75,7 +75,7 @@ firmware/$(FIRMWARE_FILE): FORCE
 
 # ================= Test =================
 
-test: test-downloads firmware/$(FIRMWARE_FILE)
+test: test-downloads firmware/$(FIRMWARE_FILE) tools
 	make -C tools test FIRMWARE_FILE=$(CURDIR)/firmware/$(FIRMWARE_FILE)
 
 .PHONY: test-downloads
