@@ -4,6 +4,10 @@
 
 name: Build
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 on:
   pull_request:
   workflow_dispatch:
@@ -81,6 +85,9 @@ jobs:
       run: |
         nextVer=$(./scripts/next_version.sh paxx12 test-pr-${{ github.event.pull_request.number }})
         echo "GIT_VERSION=${nextVer//v/}" | tee -a $GITHUB_ENV
+
+    - name: Test verified download caching
+      run: ./dev.sh make test-downloads
 
     - name: Download firmware
       run: ./dev.sh make firmware

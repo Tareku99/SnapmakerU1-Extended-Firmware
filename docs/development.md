@@ -65,6 +65,15 @@ Open a shell in the development environment:
 ./dev.sh bash
 ```
 
+Firmware and dependency downloads are checked against their pinned SHA256.
+A corrupt cache is replaced only after a new download passes verification.
+
+Run the download-cache regression tests without downloading stock firmware:
+
+```bash
+./dev.sh make test-downloads
+```
+
 ## Mods
 
 The `PROFILE` argument is parsed as `<firmware>[-<mod>]*`: a single required
