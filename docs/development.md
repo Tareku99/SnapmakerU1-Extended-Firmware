@@ -28,7 +28,7 @@ For external RFID API and mapping details, see [External RFID Support](design/fi
 
 The `./dev.sh` script builds and runs a Debian Trixie container with the native build tools and ARM64 cross-compilers used by the firmware build. It does not run an ARM64 Debian system.
 
-On Windows, use WSL2 with Docker Desktop integration and keep the checkout in the WSL Linux filesystem, such as `~/src`. Building from a Windows-mounted path such as `/mnt/c` can interfere with Linux file modes and ownership checks. Runtime shell and Python scripts have LF checkout rules, and the firmware builder checks staged shebangs before creating the squashfs image.
+On Windows, use WSL2 with Docker Desktop integration and keep the checkout in the WSL Linux filesystem, such as `~/src`. The `./dev.sh` launcher checks the checkout's filesystem type and stops before starting Docker when WSL is using a Windows-mounted filesystem (`drvfs` or `9p`). Move the repository into the WSL Linux filesystem and rerun the command. Runtime shell and Python scripts have LF checkout rules, and the firmware builder checks staged shebangs before creating the squashfs image.
 
 ## Source Repository
 

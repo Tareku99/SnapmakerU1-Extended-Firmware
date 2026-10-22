@@ -13,6 +13,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
 SHEBANG_CHECK = ROOT / "scripts/helpers/check_shebangs.sh"
+BUILD_ENVIRONMENT_CHECK = ROOT / "scripts/helpers/check_build_environment.sh"
 CAMERA_HOOK = ROOT / (
     "overlays/firmware-extended/60-app-camera/root/etc/hooks/"
     "lmd.d/20-camera-selection.sh"
@@ -62,6 +63,43 @@ class ShebangGuardTests(unittest.TestCase):
         config.write_bytes(b"option=value\r\n")
 
         result = self.run_check()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+
+class BuildEnvironmentTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory(prefix="u1-build-env-test-")
+        self.addCleanup(self.temp.cleanup)
+        self.temp_dir = Path(self.temp.name)
+        self.mock_bin = self.temp_dir / "bin"
+        self.mock_bin.mkdir()
+        self.findmnt = self.mock_bin / "findmnt"
+        self.findmnt.write_text(
+            '#!/bin/sh\nprintf "%s\\n" "$MOCK_MOUNT_TYPE"\n',
+            encoding="utf-8",
+        )
+        self.findmnt.chmod(0o755)
+
+    def run_check(self, mount_type):
+        env = os.environ.copy()
+        env["WSL_DISTRO_NAME"] = "Ubuntu"
+        env["MOCK_MOUNT_TYPE"] = mount_type
+        env["PATH"] = str(self.mock_bin) + os.pathsep + env.get("PATH", "")
+        return subprocess.run(
+            ["bash", str(BUILD_ENVIRONMENT_CHECK), str(self.temp_dir)],
+            capture_output=True, text=True, timeout=10, env=env,
+        )
+
+    def test_windows_mounted_wsl_filesystems_are_rejected(self):
+        for mount_type in ("drvfs", "9p"):
+            with self.subTest(mount_type=mount_type):
+                result = self.run_check(mount_type)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("Windows-mounted filesystem", result.stderr)
+                self.assertIn("~/src", result.stderr)
+
+    def test_linux_filesystem_is_allowed(self):
+        result = self.run_check("ext4")
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
 
